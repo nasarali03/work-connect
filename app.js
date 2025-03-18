@@ -10,10 +10,11 @@ const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const workerRoutes = require("./routes/workerRoutes");
 const setupSwagger = require("./swagger");
-
+const cors = require("cors");
 dotenv.config();
 
 const app = express();
+app.use(cors());
 
 // Middleware
 app.use(express.json());

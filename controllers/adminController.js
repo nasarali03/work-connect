@@ -1,7 +1,6 @@
 const User = require("../models/user.js");
 const Job = require("../models/job.js");
 const Admin = require("../models/Admin");
-const WorkerRequest = require("../models/workerRequestModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
@@ -71,6 +70,48 @@ exports.getAllWorkers = async (req, res) => {
   try {
     const workers = await User.find({ roles: "worker" }).select("-password");
     res.status(200).json(workers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.approveWorker = async (req, res) => {
+  try {
+    const { workerId } = req.body;
+
+    const user = await User.findById(workerId);
+    if (!user) return res.status(404).json({ message: "Worker not found" });
+
+    user.roles.push("worker");
+    user.workerDetails.verificationStatus = "approved";
+    await user.save();
+
+    res.status(200).json({ message: "Worker approved successfully." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.rejectWorker = async (req, res) => {
+  try {
+    const { workerId } = req.body;
+
+    const user = await User.findById(workerId);
+    if (!user) return res.status(404).json({ message: "Worker not found" });
+
+    if (
+      !user.roles.includes("worker") &&
+      user.workerDetails.verificationStatus !== "pending"
+    ) {
+      return res.status(400).json({
+        message: "Worker is not pending approval or already rejected",
+      });
+    }
+
+    user.workerDetails.verificationStatus = "rejected";
+    await user.save();
+
+    res.status(200).json({ message: "Worker application rejected." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
