@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { registerUser, loginUser } = require("../controllers/authController");
+const {
+  registerUser,
+  loginUser,
+  updateProfile,
+} = require("../controllers/authController");
 
 /**
  * @swagger
@@ -45,6 +49,8 @@ const { registerUser, loginUser } = require("../controllers/authController");
  *         description: Internal server error
  */
 router.post("/register", registerUser);
+
+router.put("/update-profile", updateProfile);
 
 /**
  * @swagger

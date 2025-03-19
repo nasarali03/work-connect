@@ -13,6 +13,8 @@ const {
   updateUserStatus,
   approveWorker,
   rejectWorker,
+  updateAdminProfile,
+  uploadAdminImage,
 } = require("../controllers/adminController");
 const adminAuth = require("../middlewares/adminAuth.js");
 
@@ -71,6 +73,12 @@ router.post("/register", adminRegister);
  *         description: Invalid credentials
  */
 router.post("/login", adminLogin);
+
+router.put("/update", adminAuth, updateAdminProfile);
+
+router.put("/update-user-state", adminAuth, updateUserStatus);
+
+router.post("/upload-image", adminAuth, uploadAdminImage);
 
 /**
  * @swagger
@@ -222,7 +230,7 @@ router.get("/jobs", adminAuth, getAllJobs);
 
 /**
  * @swagger
- * /admin/users/{userId}:
+ * /admin/clients/{userId}:
  *   delete:
  *     summary: Delete a user
  *     tags: [Admin]
@@ -241,7 +249,7 @@ router.get("/jobs", adminAuth, getAllJobs);
  *       401:
  *         description: Unauthorized
  */
-router.delete("/users/:userId", adminAuth, deleteUser);
+router.delete("/clients/:userId", adminAuth, deleteUser);
 
 /**
  * @swagger

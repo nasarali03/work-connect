@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const bodyParser = require("body-parser");
 const connectDB = require("./config/db");
 const adminRoutes = require("./routes/adminRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -15,7 +16,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-
+app.use(bodyParser.json());
 // Middleware
 app.use(express.json());
 

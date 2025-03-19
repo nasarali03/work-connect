@@ -45,6 +45,99 @@ exports.adminLogin = async (req, res) => {
   }
 };
 
+exports.updateAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id; // Extracted from adminAuth middleware
+    const {
+      adminName,
+      adminEmail,
+      password,
+      newAdminName,
+      newAdminEmail,
+      newPassword,
+      confirmPassword,
+      profileImage, // Base64 image string
+    } = req.body;
+
+    // Fetch admin from DB
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Verify current email and name
+    if (admin.email !== adminEmail || admin.name !== adminName) {
+      return res
+        .status(400)
+        .json({ message: "Current email or name is incorrect." });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ message: "Current password is incorrect." });
+    }
+
+    // Validate new password if provided
+    if (newPassword) {
+      if (newPassword !== confirmPassword) {
+        return res
+          .status(400)
+          .json({ message: "New password and confirm password do not match." });
+      }
+      const salt = await bcrypt.genSalt(10);
+      admin.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    // Update email and name if provided
+    if (newAdminName) admin.name = newAdminName;
+    if (newAdminEmail) admin.email = newAdminEmail;
+
+    // Store Base64 profile image
+    if (profileImage) {
+      admin.adminImage = profileImage; // Assuming your Admin model has a field `profileImage`
+    }
+
+    await admin.save();
+    res.status(200).json({ message: "Profile updated successfully", admin });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.uploadAdminImage = async (req, res) => {
+  try {
+    const adminId = req.admin.id; // Extracted from adminAuth middleware
+    const { base64 } = req.body;
+
+    if (!base64) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "No image provided" });
+    }
+
+    // Find the admin by ID
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Admin not found" });
+    }
+
+    // Save the Base64 image in MongoDB
+    admin.profileImage = base64; // Assuming your Admin model has a field `profileImage`
+    await admin.save();
+
+    res
+      .status(200)
+      .json({ status: "ok", message: "Image uploaded successfully" });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+};
+
 exports.getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.admin.id).select("-password");
@@ -123,7 +216,9 @@ exports.getPendingWorkers = async (req, res) => {
     const pendingWorkers = await User.find({
       roles: "worker",
       "workerDetails.verificationStatus": "pending",
-    }).select("-password");
+    })
+      .select("name email workerDetails")
+      .select("-password");
     res.status(200).json(pendingWorkers);
   } catch (error) {
     res.status(500).json({ message: error.message });

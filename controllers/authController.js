@@ -1,11 +1,24 @@
 const User = require("../models/user.js");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const nodemailer = require("nodemailer");
 
-// Register a new user
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // Your Gmail email
+    pass: process.env.EMAIL_PASS, // Your Gmail app password
+  },
+});
+
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone, location } = req.body;
+    const { email, password, confirmPassword } = req.body;
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -14,33 +27,62 @@ exports.registerUser = async (req, res) => {
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create a new user
+    // Create a new user (no role assigned yet)
     const newUser = new User({
-      name,
       email,
       password: hashedPassword,
-      phone,
-      location,
-      roles: ["client"],
     });
 
     await newUser.save();
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: newUser._id, role: newUser.roles },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d",
+    // Send email notification
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Welcome to Work Connect – Complete Your Profile",
+      html: `<h3>Welcome to Work Connect!</h3>
+             <p>Your account has been created successfully with <b>${email}</b>.</p>
+             <p>Please log in and complete your profile.</p>
+             <p>Thank you!</p>`,
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.log("❌ Email Error:", err);
+      } else {
+        console.log("✅ Email Sent:", info.response);
       }
+    });
+
+    res
+      .status(201)
+      .json({ message: "User registered successfully! Email sent." });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error", error });
+  }
+};
+
+// Update user profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { email, firstName, lastName, location, phoneNumber } = req.body;
+
+    // Find and update the user
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
+      { firstName, lastName, location, phoneNumber },
+      { new: true } // Return the updated document
     );
 
-    res.status(201).json({ message: "User registered successfully", token });
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Profile updated successfully!", user: updatedUser });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 

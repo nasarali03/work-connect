@@ -23,6 +23,7 @@ exports.applyAsWorker = async (req, res) => {
       skills,
       experience,
       cnic,
+      video: null,
       verificationStatus: "pending",
     };
 
@@ -34,5 +35,26 @@ exports.applyAsWorker = async (req, res) => {
   } catch (error) {
     console.error("Error applying as worker:", error);
     res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+exports.uploadWorkerVideo = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { videoBase64 } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.roles.includes("worker")) {
+      return res.status(400).json({ message: "User is not a worker" });
+    }
+
+    user.workerDetails.video = videoBase64; // Store video as base64
+    await user.save();
+
+    res.status(200).json({ message: "Video uploaded successfully!" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
