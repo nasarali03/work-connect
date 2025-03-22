@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const UserSchema = new mongoose.Schema(
   {
     // name: { type: String, required: true },
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
+    firstName: { type: String },
+    lastName: { type: String },
     email: {
       type: String,
       required: true,
@@ -35,6 +35,7 @@ const UserSchema = new mongoose.Schema(
         enum: ["pending", "approved", "rejected"],
         default: "pending",
       },
+      video: { type: String, required: true },
     },
     jobsPosted: { type: Number, default: 0 }, // Number of jobs posted
     // Fields for workers

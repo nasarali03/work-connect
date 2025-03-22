@@ -2,12 +2,15 @@ const User = require("../models/user.js");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
+require("dotenv").config();
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER, // Your Gmail email
-    pass: process.env.EMAIL_PASS, // Your Gmail app password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -21,10 +24,10 @@ exports.registerUser = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    // const existingUser = await User.findOne({ email });
+    // if (existingUser) {
+    //   return res.status(400).json({ message: "User already exists" });
+    // }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -35,7 +38,7 @@ exports.registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
-    await newUser.save();
+    // await newUser.save();
 
     // Send email notification
     const mailOptions = {
@@ -50,9 +53,9 @@ exports.registerUser = async (req, res) => {
 
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) {
-        console.log("❌ Email Error:", err);
+        console.log("Email Error:", err);
       } else {
-        console.log("✅ Email Sent:", info.response);
+        console.log("Email Sent:", info.response);
       }
     });
 
@@ -105,7 +108,7 @@ exports.loginUser = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.roles },
       process.env.JWT_SECRET,
       {
         expiresIn: "1h",
@@ -114,7 +117,7 @@ exports.loginUser = async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "Login successful", token, role: user.role });
+      .json({ message: "Login successful", token, role: user.roles });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

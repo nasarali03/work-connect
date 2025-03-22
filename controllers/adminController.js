@@ -213,10 +213,15 @@ exports.rejectWorker = async (req, res) => {
 // Get only pending workers
 exports.getPendingWorkers = async (req, res) => {
   try {
-    const pendingWorkers = await User.find({
-      roles: "worker",
-      "workerDetails.verificationStatus": "pending",
-    })
+    const { profession } = req.query;
+    // Define filter
+    let filter = { "workerDetails.verificationStatus": "pending" };
+
+    // If profession is provided, add it to the filter
+    if (profession) {
+      filter["workerDetails.profession"] = profession;
+    }
+    const pendingWorkers = await User.find(filter)
       .select("name email workerDetails")
       .select("-password");
     res.status(200).json(pendingWorkers);
@@ -228,10 +233,15 @@ exports.getPendingWorkers = async (req, res) => {
 // Get only approved workers
 exports.getApprovedWorkers = async (req, res) => {
   try {
-    const approvedWorkers = await User.find({
-      roles: "worker",
-      "workerDetails.verificationStatus": "approved",
-    }).select("-password");
+    const { profession } = req.query;
+    // Define filter
+    let filter = { "workerDetails.verificationStatus": "approved" };
+    if (profession) {
+      filter["workerDetails.profession"] = profession;
+    }
+    const approvedWorkers = await User.find(filter)
+      .select("name email workerDetails")
+      .select("-password");
     res.status(200).json(approvedWorkers);
   } catch (error) {
     res.status(500).json({ message: error.message });
