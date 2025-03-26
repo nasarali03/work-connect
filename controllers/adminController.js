@@ -26,10 +26,11 @@ exports.adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     const admin = await Admin.findOne({ email });
-
+    console.log(admin);
     if (!admin) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, admin.password);
+    console.log(isMatch);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
 
@@ -56,7 +57,7 @@ exports.updateAdminProfile = async (req, res) => {
       newAdminEmail,
       newPassword,
       confirmPassword,
-      profileImage, // Base64 image string
+      // profileImage, // Base64 image string
     } = req.body;
 
     // Fetch admin from DB
@@ -88,7 +89,8 @@ exports.updateAdminProfile = async (req, res) => {
           .json({ message: "New password and confirm password do not match." });
       }
       const salt = await bcrypt.genSalt(10);
-      admin.password = await bcrypt.hash(newPassword, salt);
+      // admin.password = await bcrypt.hash(newPassword, salt);
+      admin.password = await newPassword;
     }
 
     // Update email and name if provided
@@ -96,9 +98,9 @@ exports.updateAdminProfile = async (req, res) => {
     if (newAdminEmail) admin.email = newAdminEmail;
 
     // Store Base64 profile image
-    if (profileImage) {
-      admin.adminImage = profileImage; // Assuming your Admin model has a field `profileImage`
-    }
+    // if (profileImage) {
+    //   admin.adminImage = profileImage; // Assuming your Admin model has a field `profileImage`
+    // }
 
     await admin.save();
     res.status(200).json({ message: "Profile updated successfully", admin });
@@ -151,7 +153,8 @@ exports.getAdminProfile = async (req, res) => {
 // Get all clients
 exports.getAllClients = async (req, res) => {
   try {
-    const clients = await User.find({ roles: "client" }).select("-password");
+    const clients = await User.find({ roles: ["client"] }).select("-password");
+    // print(clients);
     res.status(200).json(clients);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -161,7 +164,12 @@ exports.getAllClients = async (req, res) => {
 // Get all workers (both pending and approved)
 exports.getAllWorkers = async (req, res) => {
   try {
-    const workers = await User.find({ roles: "worker" }).select("-password");
+    const workers = await User.find({
+      $and: [
+        { roles: { $in: ["worker"] } }, // Must have "worker" in roles
+        { roles: { $ne: ["client"] } }, // Exclude pure clients
+      ],
+    }).select("-password");
     res.status(200).json(workers);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -175,7 +183,7 @@ exports.approveWorker = async (req, res) => {
     const user = await User.findById(workerId);
     if (!user) return res.status(404).json({ message: "Worker not found" });
 
-    user.roles.push("worker");
+    user.roles = ["worker"]; // Override role to worker only
     user.workerDetails.verificationStatus = "approved";
     await user.save();
 
@@ -214,19 +222,24 @@ exports.rejectWorker = async (req, res) => {
 exports.getPendingWorkers = async (req, res) => {
   try {
     const { profession } = req.query;
-    // Define filter
+
+    // Define filter for pending workers
     let filter = { "workerDetails.verificationStatus": "pending" };
 
-    // If profession is provided, add it to the filter
+    // If profession is provided, filter by profession
     if (profession) {
       filter["workerDetails.profession"] = profession;
     }
-    const pendingWorkers = await User.find(filter)
-      .select("name email workerDetails")
-      .select("-password");
+
+    // Fetch pending workers with relevant fields
+    const pendingWorkers = await User.find(filter).select(
+      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate"
+    );
+
     res.status(200).json(pendingWorkers);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching pending workers:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 };
 
@@ -234,17 +247,24 @@ exports.getPendingWorkers = async (req, res) => {
 exports.getApprovedWorkers = async (req, res) => {
   try {
     const { profession } = req.query;
-    // Define filter
+
+    // Define filter for approved workers
     let filter = { "workerDetails.verificationStatus": "approved" };
+
+    // If profession is provided, filter by profession
     if (profession) {
       filter["workerDetails.profession"] = profession;
     }
-    const approvedWorkers = await User.find(filter)
-      .select("name email workerDetails")
-      .select("-password");
+
+    // Fetch approved workers with relevant fields
+    const approvedWorkers = await User.find(filter).select(
+      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate"
+    );
+
     res.status(200).json(approvedWorkers);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching approved workers:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 };
 

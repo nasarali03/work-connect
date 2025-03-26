@@ -1,6 +1,4 @@
 const User = require("../models/user.js");
-const upload = require("../utils/multer"); // Import Multer setup
-const fs = require("fs");
 const path = require("path");
 
 exports.applyAsWorker = async (req, res) => {
@@ -19,23 +17,45 @@ exports.applyAsWorker = async (req, res) => {
         .json({ message: "Already registered as a worker" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Video upload is required." });
+    // Extract worker details from request body
+    const {
+      profession,
+      skills,
+      experience,
+      cnic,
+      cnicFront,
+      cnicBack,
+      certificate,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !profession ||
+      !skills ||
+      !experience ||
+      !cnic ||
+      !cnicFront ||
+      !cnicBack
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All required fields must be provided." });
     }
 
     // Update user with worker details
-    const { profession, skills, experience, cnic, video } = req.body;
-
-    const videoPath = path.resolve(req.file.path);
-
     user.workerDetails = {
       profession,
-      skills: skills,
+      skills,
       experience,
       cnic,
-      video: videoPath,
+      cnicFront, // Front side CNIC image URL
+      cnicBack, // Back side CNIC image URL
+      certificate: certificate || "", // Optional professional certificate URL
       verificationStatus: "pending",
     };
+
+    // Assign worker role
+    user.roles.push("worker");
 
     await user.save();
 
