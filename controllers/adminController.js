@@ -233,7 +233,7 @@ exports.getPendingWorkers = async (req, res) => {
 
     // Fetch pending workers with relevant fields
     const pendingWorkers = await User.find(filter).select(
-      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate"
+      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate workerDetails.about"
     );
 
     res.status(200).json(pendingWorkers);
@@ -258,7 +258,7 @@ exports.getApprovedWorkers = async (req, res) => {
 
     // Fetch approved workers with relevant fields
     const approvedWorkers = await User.find(filter).select(
-      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate"
+      "firstName lastName email phoneNumber workerDetails.cnic workerDetails.profession workerDetails.skills workerDetails.experience workerDetails.cnicFront workerDetails.cnicBack workerDetails.certificate workerDetails.about"
     );
 
     res.status(200).json(approvedWorkers);

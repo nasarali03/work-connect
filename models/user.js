@@ -35,6 +35,7 @@ const UserSchema = new mongoose.Schema(
         enum: ["pending", "approved", "rejected"],
         default: "pending",
       },
+      about: { type: String, required: true },
       cnicFront: { type: String, default: "" }, // Front side of CNIC
       cnicBack: { type: String, default: "" }, // Back side of CNIC
       certificate: { type: String, default: "" }, // Professional certificate (optional)

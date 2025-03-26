@@ -26,6 +26,7 @@ exports.applyAsWorker = async (req, res) => {
       cnicFront,
       cnicBack,
       certificate,
+      about,
     } = req.body;
 
     // Validate required fields
@@ -52,6 +53,7 @@ exports.applyAsWorker = async (req, res) => {
       cnicBack, // Back side CNIC image URL
       certificate: certificate || "", // Optional professional certificate URL
       verificationStatus: "pending",
+      about,
     };
 
     // Assign worker role
