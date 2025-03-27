@@ -1,5 +1,4 @@
 const User = require("../models/user.js");
-const path = require("path");
 
 exports.applyAsWorker = async (req, res) => {
   try {
@@ -49,9 +48,9 @@ exports.applyAsWorker = async (req, res) => {
       skills,
       experience,
       cnic,
-      cnicFront, // Front side CNIC image URL
-      cnicBack, // Back side CNIC image URL
-      certificate: certificate || "", // Optional professional certificate URL
+      cnicFront,
+      cnicBack,
+      certificate: certificate || "",
       verificationStatus: "pending",
       about,
     };
@@ -67,31 +66,5 @@ exports.applyAsWorker = async (req, res) => {
   } catch (error) {
     console.error("Error applying as worker:", error);
     res.status(500).json({ message: "Internal server error." });
-  }
-};
-
-exports.uploadWorkerVideo = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    // print(req.file);
-    // Check if a file was uploaded
-    if (!req.file) {
-      return res.status(400).json({ message: "No video file uploaded" });
-    }
-
-    const videoPath = path.resolve(req.file.path);
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (!user.roles.includes("worker")) {
-      return res.status(400).json({ message: "User is not a worker" });
-    }
-
-    user.workerDetails.video = videoPath;
-    await user.save();
-
-    res.status(200).json({ message: "Video uploaded successfully!" });
-  } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
