@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 
 exports.registerUser = async (req, res) => {
   try {
-    const { email, password, confirmPassword, profilePicture } = req.body;
+    const { email, password, confirmPassword } = req.body;
 
     // Check if passwords match
     if (password !== confirmPassword) {
@@ -36,7 +36,6 @@ exports.registerUser = async (req, res) => {
     const newUser = new User({
       email,
       password: hashedPassword,
-      profilePicture,
     });
 
     await newUser.save();

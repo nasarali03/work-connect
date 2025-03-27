@@ -18,6 +18,7 @@ exports.applyAsWorker = async (req, res) => {
 
     // Extract worker details from request body
     const {
+      profilePicture,
       profession,
       skills,
       experience,
@@ -44,6 +45,7 @@ exports.applyAsWorker = async (req, res) => {
 
     // Update user with worker details
     user.workerDetails = {
+      profilePicture,
       profession,
       skills,
       experience,
