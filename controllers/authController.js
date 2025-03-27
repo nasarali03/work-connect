@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 
 exports.registerUser = async (req, res) => {
   try {
-    const { email, password, confirmPassword } = req.body;
+    const { email, password, confirmPassword, profilePicture } = req.body;
 
     // Check if passwords match
     if (password !== confirmPassword) {
@@ -26,8 +26,8 @@ exports.registerUser = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-    return res.status(400).json({ message: "User already exists" });
-     }
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -36,6 +36,7 @@ exports.registerUser = async (req, res) => {
     const newUser = new User({
       email,
       password: hashedPassword,
+      profilePicture,
     });
 
     await newUser.save();
