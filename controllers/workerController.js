@@ -31,12 +31,14 @@ exports.applyAsWorker = async (req, res) => {
 
     // Validate required fields
     if (
+      !profilePicture ||
       !profession ||
       !skills ||
       !experience ||
       !cnic ||
       !cnicFront ||
-      !cnicBack
+      !cnicBack ||
+      !about
     ) {
       return res
         .status(400)
