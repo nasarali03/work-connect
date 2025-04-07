@@ -72,3 +72,40 @@ exports.applyAsWorker = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+// POST /api/workers/feedback/:workerId
+exports.addFeedback = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+    const clientId = req.user.id;
+    const { rating, comment } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res
+        .status(400)
+        .json({ message: "Rating must be between 1 and 5" });
+    }
+
+    const worker = await User.findById(workerId);
+    if (!worker || !worker.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    const client = await User.findById(clientId);
+
+    const feedbackEntry = {
+      clientId: clientId,
+      clientName: `${client.firstName} ${client.lastName}`,
+      rating,
+      comment,
+    };
+
+    worker.workerDetails.feedback.push(feedbackEntry);
+    await worker.save();
+
+    res.status(200).json({ message: "Feedback submitted successfully." });
+  } catch (error) {
+    console.error("Error adding feedback:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

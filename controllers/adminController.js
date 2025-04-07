@@ -336,3 +336,49 @@ exports.deleteJob = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Get all feedback for a worker
+// GET /api/workers/feedback/:workerId
+exports.getFeedback = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+
+    const user = await User.findById(workerId);
+
+    if (!user || !user.roles || !user.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    res.status(200).json(user.workerDetails.feedback);
+  } catch (error) {
+    console.error("Error fetching feedback:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// Get average feedback for a worker
+// GET /api/workers/feedback/:workerId/average
+exports.getAverageRating = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+
+    const user = await User.findById(workerId);
+
+    if (!user || !user.roles || !user.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    const feedback = user.workerDetails.feedback;
+    if (!feedback.length) {
+      return res.status(200).json({ averageRating: 0 });
+    }
+
+    const total = feedback.reduce((sum, entry) => sum + entry.rating, 0);
+    const average = total / feedback.length;
+
+    res.status(200).json({ averageRating: average.toFixed(2) });
+  } catch (error) {
+    console.error("Error calculating average rating:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

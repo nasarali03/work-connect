@@ -40,6 +40,16 @@ const UserSchema = new mongoose.Schema(
       cnicFront: { type: String, default: "" }, // Front side of CNIC
       cnicBack: { type: String, default: "" }, // Back side of CNIC
       certificate: { type: String, default: "" }, // Professional certificate (optional)
+
+      feedback: [
+        {
+          clientId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+          clientName: { type: String }, // optional, to quickly show name
+          rating: { type: Number, min: 1, max: 5 },
+          comment: { type: String },
+          date: { type: Date, default: Date.now },
+        },
+      ],
     },
     jobsPosted: { type: Number, default: 0 }, // Number of jobs posted
     // Fields for workers
