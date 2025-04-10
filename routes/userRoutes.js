@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
-const { getUserStats } = require("../controllers/userController");
+const {
+  getUserStats,
+  getUserProfile,
+} = require("../controllers/userController");
 
 /**
  * @swagger
@@ -38,5 +41,6 @@ const { getUserStats } = require("../controllers/userController");
  *         description: Internal server error
  */
 router.get("/stats", authMiddleware, getUserStats);
+router.get("/profile", authMiddleware, getUserProfile);
 
 module.exports = router;
