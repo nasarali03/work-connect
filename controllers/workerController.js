@@ -113,18 +113,43 @@ exports.addFeedback = async (req, res) => {
 exports.checkWorkerVerificationStatus = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.workerDetails.verificationStatus == "approved") {
+    // Fetch the user by ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Check if the user has 'worker' role
+    if (!user.roles.includes("worker")) {
+      return res
+        .status(403)
+        .json({ message: "User is not registered as a worker." });
+    }
+
+    // Check if workerDetails exists
+    const verificationStatus = user.workerDetails?.verificationStatus;
+
+    if (!verificationStatus) {
+      return res.status(400).json({ message: "Worker details not found." });
+    }
+
+    if (verificationStatus === "approved") {
       return res.status(200).json({ message: "Worker is verified." });
-    } else {
+    } else if (verificationStatus === "pending") {
       return res
         .status(200)
-        .json({ message: "Your worker request is still pending" });
+        .json({ message: "Your worker request is still pending." });
+    } else if (verificationStatus === "rejected") {
+      return res
+        .status(200)
+        .json({ message: "Your worker request has been rejected." });
+    } else {
+      return res.status(400).json({ message: "Invalid verification status." });
     }
   } catch (error) {
     console.error("Error checking worker verification status:", error);
-    res.status(500).json({ message: "Internal server error." });
+    return res.status(500).json({ message: "Internal server error." });
   }
 };
