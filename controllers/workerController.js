@@ -122,23 +122,19 @@ exports.checkWorkerVerificationStatus = async (req, res) => {
     }
 
     if (!user.roles.includes("worker")) {
-      return res
-        .status(403)
-        .json({
-          message: "User is not registered as a worker.",
-          status: "not_a_worker",
-        });
+      return res.status(403).json({
+        message: "User is not registered as a worker.",
+        status: "not_a_worker",
+      });
     }
 
     const verificationStatus = user.workerDetails?.verificationStatus;
 
     if (!verificationStatus) {
-      return res
-        .status(400)
-        .json({
-          message: "Worker details not found.",
-          status: "missing_details",
-        });
+      return res.status(400).json({
+        message: "Worker details not found.",
+        status: "missing_details",
+      });
     }
 
     if (verificationStatus === "approved") {
@@ -157,12 +153,10 @@ exports.checkWorkerVerificationStatus = async (req, res) => {
         status: "rejected",
       });
     } else {
-      return res
-        .status(400)
-        .json({
-          message: "Invalid verification status.",
-          status: "invalid_status",
-        });
+      return res.status(400).json({
+        message: "Invalid verification status.",
+        status: "invalid_status",
+      });
     }
   } catch (error) {
     console.error("Error checking worker verification status:", error);

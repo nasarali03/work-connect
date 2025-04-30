@@ -13,9 +13,5 @@ router.post("/apply", authMiddleware, applyAsWorker);
 // 1. Add feedback (Client to Worker)
 router.post("/feedback/:workerId", authMiddleware, addFeedback);
 
-router.post(
-  "/check-status/:userId",
-  authMiddleware,
-  checkWorkerVerificationStatus
-);
+router.get("/check-status", authMiddleware, checkWorkerVerificationStatus);
 module.exports = router;
