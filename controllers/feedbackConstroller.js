@@ -1,5 +1,4 @@
 const Feedback = require("../models/Feedback");
-const User = require("../models/User");
 
 // 1. Create feedback
 exports.createFeedback = async (req, res) => {
