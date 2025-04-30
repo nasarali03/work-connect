@@ -13,7 +13,7 @@ const UserSchema = new mongoose.Schema(
     },
     phoneNumber: { type: String },
     password: { type: String, required: true },
-
+    profilePicture: { type: String, default: "" },
     roles: {
       type: [String], // Now an array instead of a single role
       enum: ["client", "worker"],

@@ -7,7 +7,7 @@ const AdminSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["admin", "superadmin"], default: "admin" },
-    adminImage: { type: String }, // Storing base64 string here
+    profileImage: { type: String }, // Storing base64 string here
   },
   { timestamps: true }
 );

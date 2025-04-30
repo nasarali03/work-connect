@@ -4,6 +4,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const {
   getUserStats,
   getUserProfile,
+  updateUserProfileImage,
 } = require("../controllers/userController");
 
 /**
@@ -42,5 +43,6 @@ const {
  */
 router.get("/stats", authMiddleware, getUserStats);
 router.get("/profile", authMiddleware, getUserProfile);
+router.get("/image-upload/:userId", authMiddleware, updateUserProfileImage);
 
 module.exports = router;
