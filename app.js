@@ -11,6 +11,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const workerRoutes = require("./routes/workerRoutes");
 const setupSwagger = require("./swagger");
+const feedbackRoutes = require("./routes/feedbackRoutes");
 const cors = require("cors");
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/workers", workerRoutes);
+app.use("/api/feedback", feedbackRoutes); // Feedback routes
 
 setupSwagger(app);
 // Error handling
