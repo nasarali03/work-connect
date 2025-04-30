@@ -43,6 +43,6 @@ const {
  */
 router.get("/stats", authMiddleware, getUserStats);
 router.get("/profile", authMiddleware, getUserProfile);
-router.get("/image-upload/:userId", authMiddleware, updateUserProfileImage);
+router.post("/image-upload/:userId", authMiddleware, updateUserProfileImage);
 
 module.exports = router;

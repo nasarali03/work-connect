@@ -109,3 +109,22 @@ exports.addFeedback = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+exports.checkWorkerVerificationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.workerDetails.verificationStatus == "approved") {
+      return res.status(200).json({ message: "Worker is verified." });
+    } else {
+      return res
+        .status(200)
+        .json({ message: "Your worker request is still pending" });
+    }
+  } catch (error) {
+    console.error("Error checking worker verification status:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
