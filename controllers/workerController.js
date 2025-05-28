@@ -1,6 +1,6 @@
-const User = require("../models/user.js");
+import User from "../models/user.js";
 
-exports.applyAsWorker = async (req, res) => {
+export const applyAsWorker = async (req, res) => {
   try {
     // Extract user ID from the authenticated request
     const userId = req.user.id;
@@ -74,7 +74,7 @@ exports.applyAsWorker = async (req, res) => {
 };
 
 // POST /api/workers/feedback/:workerId
-exports.addFeedback = async (req, res) => {
+export const addFeedback = async (req, res) => {
   try {
     const workerId = req.params.workerId;
     const clientId = req.user.id;
@@ -109,7 +109,25 @@ exports.addFeedback = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
-exports.checkWorkerVerificationStatus = async (req, res) => {
+
+export const getWorkerFeedback = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+
+    const worker = await User.findById(workerId);
+    if (!worker || !worker.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    const feedback = worker.workerDetails.feedback || [];
+
+    res.status(200).json({ feedback });
+  } catch (error) {
+    console.error("Error fetching worker feedback:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+export const checkWorkerVerificationStatus = async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -163,5 +181,163 @@ exports.checkWorkerVerificationStatus = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Internal server error.", status: "error" });
+  }
+};
+
+// Update worker activity status
+export const updateActivityStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const userId = req.user.id;
+
+    // Validate status
+    if (!["offline", "online", "busy"].includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status. Must be 'offline', 'online', or 'busy'",
+      });
+    }
+
+    // Update user's activity status
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        "workerDetails.activityStatus": status,
+        "workerDetails.lastActive": new Date(),
+      },
+      { new: true }
+    ).select("workerDetails.activityStatus workerDetails.lastActive");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Activity status updated successfully",
+      status: user.workerDetails.activityStatus,
+      lastActive: user.workerDetails.lastActive,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Get worker activity status
+export const getActivityStatus = async (req, res) => {
+  try {
+    const userId = req.params.workerId;
+
+    const user = await User.findById(userId).select(
+      "workerDetails.activityStatus workerDetails.lastActive firstName lastName"
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    res.status(200).json({
+      status: user.workerDetails.activityStatus,
+      lastActive: user.workerDetails.lastActive,
+      name: `${user.firstName} ${user.lastName}`,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Get all active workers
+export const getActiveWorkers = async (req, res) => {
+  try {
+    const { profession } = req.query;
+
+    let query = {
+      "workerDetails.activityStatus": "online",
+      "workerDetails.verificationStatus": "approved",
+    };
+
+    if (profession) {
+      query["workerDetails.profession"] = profession;
+    }
+
+    const activeWorkers = await User.find(query).select(
+      "firstName lastName workerDetails.profession workerDetails.activityStatus workerDetails.lastActive location"
+    );
+
+    res.status(200).json(activeWorkers);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Get worker profile details
+export const getWorkerProfile = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+
+    // Find worker and select relevant fields
+    const worker = await User.findById(workerId)
+      .select("-password") // Exclude password
+      .lean(); // Convert to plain JavaScript object for better performance
+
+    if (!worker || !worker.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    // Calculate average rating
+    const feedback = worker.workerDetails?.feedback || [];
+    const averageRating =
+      feedback.length > 0
+        ? (
+            feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+            feedback.length
+          ).toFixed(2)
+        : 0;
+
+    // Structure the response
+    const workerProfile = {
+      personalInfo: {
+        id: worker._id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        email: worker.email,
+        phoneNumber: worker.phoneNumber,
+        profilePicture: worker.profilePicture,
+        location: worker.location,
+      },
+      professionalInfo: {
+        profession: worker.workerDetails.profession,
+        skills: worker.workerDetails.skills,
+        experience: worker.workerDetails.experience,
+        about: worker.workerDetails.about,
+        verificationStatus: worker.workerDetails.verificationStatus,
+      },
+      activity: {
+        status: worker.workerDetails.activityStatus || "offline",
+        lastActive: worker.workerDetails.lastActive,
+        jobsAccepted: worker.jobsAccepted,
+        jobsCompleted: worker.jobsCompleted,
+      },
+      performance: {
+        averageRating: parseFloat(averageRating),
+        totalReviews: feedback.length,
+        recentFeedback: feedback.slice(-3), // Get last 3 feedback entries
+      },
+      documents: {
+        cnic: worker.workerDetails?.cnic,
+        cnicFront: worker.workerDetails?.cnicFront || "",
+        cnicBack: worker.workerDetails?.cnicBack || "",
+        certificate: worker.workerDetails?.certificate || "",
+      },
+    };
+
+    res.status(200).json(workerProfile);
+  } catch (error) {
+    console.error("Error fetching worker profile:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

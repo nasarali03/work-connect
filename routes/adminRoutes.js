@@ -1,5 +1,6 @@
-const express = require("express");
-const {
+// routes/adminRoutes.js
+import express from "express";
+import {
   adminRegister,
   adminLogin,
   getAdminProfile,
@@ -17,8 +18,8 @@ const {
   uploadAdminImage,
   getFeedback,
   getAverageRating,
-} = require("../controllers/adminController");
-const adminAuth = require("../middlewares/adminAuth.js");
+} from "../controllers/adminController.js";
+import adminAuth from "../middlewares/adminAuth.js";
 
 const router = express.Router();
 
@@ -60,4 +61,4 @@ router.get("/feedback/:workerId", getFeedback);
 // Get average rating for a worker
 router.get("/feedback/:workerId/average", getAverageRating);
 
-module.exports = router;
+export default router;

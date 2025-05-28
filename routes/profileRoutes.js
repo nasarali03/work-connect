@@ -1,8 +1,9 @@
-const express = require("express");
-const router = express.Router();
-const authMiddleware = require("../middlewares/authMiddleware");
-const { updateProfile } = require("../controllers/profileController");
+import express from "express";
+import authMiddleware from "../middlewares/authMiddleware.js";
 
+import { updateProfile } from "../controllers/authController.js";
+
+const router = express.Router();
 /**
  * @swagger
  * tags:
@@ -43,4 +44,4 @@ const { updateProfile } = require("../controllers/profileController");
  */
 router.put("/update", authMiddleware, updateProfile);
 
-module.exports = router;
+export default router;

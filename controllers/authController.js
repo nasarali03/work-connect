@@ -1,9 +1,10 @@
-const User = require("../models/user.js");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
-require("dotenv").config();
+import User from "../models/user.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
+dotenv.config();
 const transporter = nodemailer.createTransport({
   service: "gmail",
   port: 587,
@@ -14,7 +15,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-exports.registerUser = async (req, res) => {
+export const registerUser = async (req, res) => {
   try {
     const { email, password, confirmPassword } = req.body;
 
@@ -68,7 +69,7 @@ exports.registerUser = async (req, res) => {
 };
 
 // Update user profile
-exports.updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { email, firstName, lastName, location, phoneNumber } = req.body;
 
@@ -90,7 +91,7 @@ exports.updateProfile = async (req, res) => {
 };
 
 // Login a user
-exports.loginUser = async (req, res) => {
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 

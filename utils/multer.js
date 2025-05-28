@@ -1,6 +1,6 @@
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const uploadDir = path.join(__dirname, "../uploads/worker_videos");
 
@@ -35,4 +35,4 @@ const upload = multer({
   fileFilter: fileFilter,
   limits: { fileSize: 100 * 1024 * 1024 }, // Limit 100MB
 });
-module.exports = upload;
+export default upload;

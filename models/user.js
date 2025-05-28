@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
@@ -31,6 +31,15 @@ const UserSchema = new mongoose.Schema(
       skills: { type: [String] },
       experience: { type: String },
       cnic: { type: String },
+      activityStatus: {
+        type: String,
+        enum: ["offline", "online", "busy"],
+        default: "offline",
+      },
+      lastActive: {
+        type: Date,
+        default: Date.now,
+      },
       verificationStatus: {
         type: String,
         enum: ["pending", "approved", "rejected"],
@@ -59,4 +68,5 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-module.exports = mongoose.model("User", UserSchema);
+const User = mongoose.model("User", UserSchema);
+export default User;

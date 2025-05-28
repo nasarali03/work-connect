@@ -1,11 +1,11 @@
-const express = require("express");
-const router = express.Router();
-const {
+// routes/authRoutes.js
+import express from "express";
+import {
   registerUser,
   loginUser,
   updateProfile,
-} = require("../controllers/authController");
-
+} from "../controllers/authController.js";
+const router = express.Router();
 /**
  * @swagger
  * tags:
@@ -82,4 +82,4 @@ router.put("/update-profile", updateProfile);
  */
 router.post("/login", loginUser);
 
-module.exports = router;
+export default router;

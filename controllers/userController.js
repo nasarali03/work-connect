@@ -1,6 +1,6 @@
-const User = require("../models/user.js");
+import User from "../models/user.js";
 
-exports.getUserStats = async (req, res) => {
+export const getUserStats = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
       "name role jobsPosted jobsAccepted jobsCompleted"
@@ -11,7 +11,7 @@ exports.getUserStats = async (req, res) => {
   }
 };
 
-exports.getUserProfile = async (req, res) => {
+export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id; // Get the user ID from the request object
     const user = await User.findById(userId).select("-password"); // Exclude password
@@ -24,7 +24,7 @@ exports.getUserProfile = async (req, res) => {
   }
 };
 
-exports.updateUserProfileImage = async (req, res) => {
+export const updateUserProfileImage = async (req, res) => {
   try {
     const userId = req.user.id; // Get the user ID from the request object
     const user = await User.findById(userId); // Find the user by ID

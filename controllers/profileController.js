@@ -1,8 +1,6 @@
-// controllers/profileController.js
-const Profile = require("../models/Profile");
-
+import Profile from "../models/Profile.js";
 // Update profile
-exports.updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { skills, experience, location } = req.body;
     console.log(req.user.id);

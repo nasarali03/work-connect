@@ -1,9 +1,9 @@
-const Job = require("../models/job");
-const Profile = require("../models/Profile");
-const User = require("../models/user.js");
+import Job from "../models/job.js";
+import Profile from "../models/Profile.js";
+import User from "../models/user.js";
 
 // Create a job
-exports.createJob = async (req, res) => {
+export const createJob = async (req, res) => {
   try {
     if (req.user.role !== "client") {
       return res.status(403).json({ message: "Only clients can post jobs" });
@@ -71,7 +71,7 @@ exports.createJob = async (req, res) => {
 };
 
 // Get all open jobs
-exports.getOpenJobs = async (req, res) => {
+export const getOpenJobs = async (req, res) => {
   try {
     if (req.user.role !== "worker") {
       return res.status(403).json({ message: "Only workers can view jobs" });
@@ -120,7 +120,7 @@ exports.getOpenJobs = async (req, res) => {
   }
 };
 // Worker requests to accept a job
-exports.requestJobAcceptance = async (req, res) => {
+export const requestJobAcceptance = async (req, res) => {
   try {
     if (req.user.role !== "worker") {
       return res.status(403).json({ message: "Only workers can accept jobs" });
@@ -185,7 +185,7 @@ exports.requestJobAcceptance = async (req, res) => {
 };
 
 // Client approves worker's job request
-exports.approveJobAcceptance = async (req, res) => {
+export const approveJobAcceptance = async (req, res) => {
   try {
     if (req.user.role !== "client") {
       return res
@@ -227,7 +227,7 @@ exports.approveJobAcceptance = async (req, res) => {
   }
 };
 
-exports.completeJob = async (req, res) => {
+export const completeJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
@@ -245,6 +245,7 @@ exports.completeJob = async (req, res) => {
       }
 
       job.status = "awaiting confirmation";
+      job.paymentStatus = "in progress";
       await job.save();
 
       return res.status(200).json({
@@ -265,6 +266,7 @@ exports.completeJob = async (req, res) => {
       }
 
       job.status = "completed";
+      job.paymentStatus = "completed";
       await job.save();
 
       // Increment worker's completed jobs count
@@ -272,7 +274,13 @@ exports.completeJob = async (req, res) => {
         $inc: { jobsCompleted: 1 },
       });
 
-      return res.status(200).json({ message: "Job marked as completed.", job });
+      return res.status(200).json({
+        message: "Job marked as completed.",
+        job: {
+          ...job.toObject(),
+          paymentStatus: job.paymentStatus,
+        },
+      });
     }
 
     return res.status(403).json({ message: "Unauthorized action" });
@@ -282,7 +290,7 @@ exports.completeJob = async (req, res) => {
 };
 
 // Get complete job details
-exports.getJobDetails = async (req, res) => {
+export const getJobDetails = async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -336,7 +344,7 @@ exports.getJobDetails = async (req, res) => {
   }
 };
 
-exports.deleteJob = async (req, res) => {
+export const deleteJob = async (req, res) => {
   try {
     const { jobId } = req.params;
     const job = await Job.findByIdAndDelete(jobId);

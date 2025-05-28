@@ -1,14 +1,15 @@
-const express = require("express");
-const router = express.Router();
-const authMiddleware = require("../middlewares/authMiddleware");
-const {
+import express from "express";
+import authMiddleware from "../middlewares/authMiddleware.js";
+import {
   createJob,
   getOpenJobs,
   requestJobAcceptance,
   approveJobAcceptance,
   completeJob,
   getJobDetails,
-} = require("../controllers/jobController");
+} from "../controllers/jobController.js";
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -286,4 +287,4 @@ router.put("/complete/:jobId", authMiddleware, completeJob);
  */
 router.get("/:jobId/details", authMiddleware, getJobDetails);
 
-module.exports = router;
+export default router;

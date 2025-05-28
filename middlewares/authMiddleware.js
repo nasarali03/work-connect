@@ -1,4 +1,4 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
 const authMiddleware = (req, res, next) => {
   const token = req.header("Authorization");
@@ -16,9 +16,9 @@ const authMiddleware = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    console.log("JWT Verification Error:", error.message); // ✅ Debugging
+    console.log("JWT Verification Error:", error.message);
     res.status(400).json({ message: "Invalid token" });
   }
 };
 
-module.exports = authMiddleware;
+export default authMiddleware;

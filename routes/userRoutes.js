@@ -1,11 +1,12 @@
-const express = require("express");
-const router = express.Router();
-const authMiddleware = require("../middlewares/authMiddleware");
-const {
+import express from "express";
+import authMiddleware from "../middlewares/authMiddleware.js";
+import {
   getUserStats,
   getUserProfile,
   updateUserProfileImage,
-} = require("../controllers/userController");
+} from "../controllers/userController.js";
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -45,4 +46,4 @@ router.get("/stats", authMiddleware, getUserStats);
 router.get("/profile", authMiddleware, getUserProfile);
 router.post("/image-upload/:userId", authMiddleware, updateUserProfileImage);
 
-module.exports = router;
+export default router;

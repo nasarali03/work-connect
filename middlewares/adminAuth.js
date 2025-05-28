@@ -1,5 +1,5 @@
-const jwt = require("jsonwebtoken");
-const Admin = require("../models/Admin"); // Ensure the Admin model exists
+import jwt from "jsonwebtoken";
+import Admin from "../models/Admin.js"; // Make sure Admin.js uses `export default`
 
 const adminAuth = async (req, res, next) => {
   try {
@@ -28,5 +28,4 @@ const adminAuth = async (req, res, next) => {
     res.status(401).json({ message: "Invalid token" });
   }
 };
-
-module.exports = adminAuth;
+export default adminAuth;

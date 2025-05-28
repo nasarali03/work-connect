@@ -1,10 +1,10 @@
-const User = require("../models/user.js");
-const Job = require("../models/job.js");
-const Admin = require("../models/Admin");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
+import User from "../models/user.js";
+import Job from "../models/job.js";
+import Admin from "../models/Admin.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
-exports.adminRegister = async (req, res) => {
+export const adminRegister = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     const existingAdmin = await Admin.findOne({ email });
@@ -22,7 +22,7 @@ exports.adminRegister = async (req, res) => {
   }
 };
 
-exports.adminLogin = async (req, res) => {
+export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     const admin = await Admin.findOne({ email });
@@ -46,7 +46,7 @@ exports.adminLogin = async (req, res) => {
   }
 };
 
-exports.updateAdminProfile = async (req, res) => {
+export const updateAdminProfile = async (req, res) => {
   try {
     const adminId = req.admin.id; // Extracted from adminAuth middleware
     const {
@@ -109,7 +109,7 @@ exports.updateAdminProfile = async (req, res) => {
   }
 };
 
-exports.uploadAdminImage = async (req, res) => {
+export const uploadAdminImage = async (req, res) => {
   try {
     const adminId = req.admin.id; // Extracted from adminAuth middleware
     const { base64 } = req.body;
@@ -140,7 +140,7 @@ exports.uploadAdminImage = async (req, res) => {
   }
 };
 
-exports.getAdminProfile = async (req, res) => {
+export const getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.admin.id).select("-password");
     if (!admin) return res.status(404).json({ message: "Admin not found" });
@@ -151,7 +151,7 @@ exports.getAdminProfile = async (req, res) => {
   }
 };
 // Get all clients
-exports.getAllClients = async (req, res) => {
+export const getAllClients = async (req, res) => {
   try {
     const clients = await User.find({ roles: ["client"] }).select("-password");
     // print(clients);
@@ -162,7 +162,7 @@ exports.getAllClients = async (req, res) => {
 };
 
 // Get all workers (both pending and approved)
-exports.getAllWorkers = async (req, res) => {
+export const getAllWorkers = async (req, res) => {
   try {
     const workers = await User.find({
       $and: [
@@ -176,7 +176,7 @@ exports.getAllWorkers = async (req, res) => {
   }
 };
 
-exports.approveWorker = async (req, res) => {
+export const approveWorker = async (req, res) => {
   try {
     const { workerId } = req.body;
 
@@ -193,7 +193,7 @@ exports.approveWorker = async (req, res) => {
   }
 };
 
-exports.rejectWorker = async (req, res) => {
+export const rejectWorker = async (req, res) => {
   try {
     const { workerId } = req.body;
 
@@ -219,7 +219,7 @@ exports.rejectWorker = async (req, res) => {
 };
 
 // Get only pending workers
-exports.getPendingWorkers = async (req, res) => {
+export const getPendingWorkers = async (req, res) => {
   try {
     const { profession } = req.query;
 
@@ -244,7 +244,7 @@ exports.getPendingWorkers = async (req, res) => {
 };
 
 // Get only approved workers
-exports.getApprovedWorkers = async (req, res) => {
+export const getApprovedWorkers = async (req, res) => {
   try {
     const { profession } = req.query;
 
@@ -269,7 +269,7 @@ exports.getApprovedWorkers = async (req, res) => {
 };
 
 // Activate/Deactivate a user
-exports.updateUserStatus = async (req, res) => {
+export const updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
     const { active } = req.body;
@@ -295,7 +295,7 @@ exports.updateUserStatus = async (req, res) => {
 };
 
 // Get all jobs (optional filter by status)
-exports.getAllJobs = async (req, res) => {
+export const getAllJobs = async (req, res) => {
   try {
     const { status } = req.query;
     let filter = {};
@@ -312,7 +312,7 @@ exports.getAllJobs = async (req, res) => {
 };
 
 // Delete a user
-exports.deleteUser = async (req, res) => {
+export const deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await User.findByIdAndDelete(userId);
@@ -325,7 +325,7 @@ exports.deleteUser = async (req, res) => {
 };
 
 // Delete a job
-exports.deleteJob = async (req, res) => {
+export const deleteJob = async (req, res) => {
   try {
     const { jobId } = req.params;
     const job = await Job.findByIdAndDelete(jobId);
@@ -339,7 +339,7 @@ exports.deleteJob = async (req, res) => {
 
 // Get all feedback for a worker
 // GET /api/workers/feedback/:workerId
-exports.getFeedback = async (req, res) => {
+export const getFeedback = async (req, res) => {
   try {
     const workerId = req.params.workerId;
 
@@ -358,7 +358,7 @@ exports.getFeedback = async (req, res) => {
 
 // Get average feedback for a worker
 // GET /api/workers/feedback/:workerId/average
-exports.getAverageRating = async (req, res) => {
+export const getAverageRating = async (req, res) => {
   try {
     const workerId = req.params.workerId;
 

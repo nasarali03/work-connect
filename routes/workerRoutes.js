@@ -1,10 +1,14 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   applyAsWorker,
   addFeedback,
   checkWorkerVerificationStatus,
-} = require("../controllers/workerController");
-const authMiddleware = require("../middlewares/authMiddleware");
+  updateActivityStatus,
+  getActivityStatus,
+  getActiveWorkers,
+  getWorkerProfile,
+} from "../controllers/workerController.js";
+import authMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -14,4 +18,11 @@ router.post("/apply", authMiddleware, applyAsWorker);
 router.post("/feedback/:workerId", authMiddleware, addFeedback);
 
 router.get("/check-status", authMiddleware, checkWorkerVerificationStatus);
-module.exports = router;
+
+router.put("/activity-status", authMiddleware, updateActivityStatus);
+router.get("/activity-status/:workerId", authMiddleware, getActivityStatus);
+router.get("/active-workers", authMiddleware, getActiveWorkers);
+// Add this with the other routes
+router.get("/profile/:workerId", authMiddleware, getWorkerProfile);
+
+export default router;
