@@ -6,6 +6,9 @@ const JobSchema = new mongoose.Schema(
     description: { type: String, required: true },
     category: { type: String, required: true }, // Example: "Plumbing", "Electrician", "Construction"
     budget: { type: Number, required: true, min: 0 },
+    openToOffer: { type: Boolean, default: false },
+    rightNow: { type: Boolean, default: false },
+    scheduledDateTime: { type: Date },
 
     // Job location details
     location: {
@@ -15,8 +18,6 @@ const JobSchema = new mongoose.Schema(
     },
 
     skillsRequired: { type: [String], default: [] },
-
-    duration: { type: String, required: true }, // Example: "2 hours", "3 days"
 
     status: {
       type: String,

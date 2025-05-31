@@ -18,18 +18,13 @@ export const createJob = async (req, res) => {
       budget,
       location,
       skillsRequired,
-      duration,
+      rightNow,
+      scheduledDateTime,
+      openToOffer,
     } = req.body;
 
     // Validate required fields
-    if (
-      !title ||
-      !description ||
-      !category ||
-      !budget ||
-      !location ||
-      !duration
-    ) {
+    if (!title || !description || !category || !budget || !location) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -38,6 +33,26 @@ export const createJob = async (req, res) => {
       return res.status(400).json({
         message: "Location must include latitude, longitude, and address",
       });
+    }
+
+    // Validate date and time requirements
+    if (!rightNow && !scheduledDateTime) {
+      return res.status(400).json({
+        message:
+          "Either 'rightNow' must be true or 'scheduledDateTime' must be provided",
+      });
+    }
+
+    // If rightNow is false, validate scheduledDateTime
+    if (!rightNow) {
+      const scheduledDate = new Date(scheduledDateTime);
+      const now = new Date();
+
+      if (scheduledDate < now) {
+        return res.status(400).json({
+          message: "Scheduled date and time must be in the future",
+        });
+      }
     }
 
     // Create a new job
@@ -52,7 +67,9 @@ export const createJob = async (req, res) => {
         address: location.address,
       },
       skillsRequired,
-      duration,
+      rightNow: rightNow || false,
+      scheduledDateTime: rightNow ? new Date() : new Date(scheduledDateTime),
+      openToOffer: openToOffer || false,
       status: "open",
       clientId: req.user.id,
       workerId: null,
@@ -75,7 +92,7 @@ export const createJob = async (req, res) => {
 // Get all open jobs
 export const getOpenJobs = async (req, res) => {
   try {
-    if (req.user.role !== "worker") {
+    if (!req.user.role.includes("worker")) {
       return res.status(403).json({ message: "Only workers can view jobs" });
     }
 
@@ -86,9 +103,19 @@ export const getOpenJobs = async (req, res) => {
       longitude,
       radius,
       skills,
+      budgetType,
     } = req.query;
 
     let filter = { status: "open" };
+
+    // Filter by budget type if specified
+    if (budgetType) {
+      if (budgetType === "open_to_offer") {
+        filter.openToOffer = true;
+      } else if (budgetType === "fixed") {
+        filter.openToOffer = false;
+      }
+    }
 
     // Filter by nearby location (if latitude & longitude are provided)
     if (latitude && longitude && radius) {
@@ -113,18 +140,27 @@ export const getOpenJobs = async (req, res) => {
 
     const jobs = await Job.find(filter)
       .populate("clientId", "name email")
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    res.status(200).json(jobs);
+    // Transform the response to include budget type information
+    const transformedJobs = jobs.map((job) => ({
+      ...job.toObject(),
+      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      budget: job.openToOffer ? null : job.budget,
+    }));
+
+    res.status(200).json(transformedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 // Worker requests to accept a job
 export const requestJobAcceptance = async (req, res) => {
   try {
-    if (req.user.role !== "worker") {
+    if (!req.user.role.includes("worker")) {
       return res.status(403).json({ message: "Only workers can accept jobs" });
     }
 
@@ -235,7 +271,7 @@ export const completeJob = async (req, res) => {
     if (!job) return res.status(404).json({ message: "Job not found" });
 
     // Worker requests completion
-    if (req.user.role === "worker") {
+    if (!req.user.role.includes("worker")) {
       if (!job.workerId || job.workerId.toString() !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized action" });
       }
@@ -256,7 +292,7 @@ export const completeJob = async (req, res) => {
     }
 
     // Client confirms completion
-    if (req.user.role === "client") {
+    if (req.user.role.includes("client")) {
       if (!job.clientId || job.clientId.toString() !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized action" });
       }
@@ -298,22 +334,24 @@ export const getJobDetails = async (req, res) => {
 
     // Fetch job details and populate client & worker info
     const job = await Job.findById(jobId)
-      .populate("clientId", "name email role") // Get client details
-      .populate("workerId", "name email role") // Get worker details
+      .populate("clientId", "name email role")
+      .populate("workerId", "name email role")
       .lean();
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Structure response
+    // Structure response with budget type information
     const jobDetails = {
       jobId: job._id,
       title: job.title,
       description: job.description,
       category: job.category,
-      budget: job.budget,
-      duration: job.duration,
+      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      budget: job.openToOffer ? null : job.budget,
+      rightNow: job.rightNow,
+      scheduledDateTime: job.scheduledDateTime,
       location: job.location,
       skillsRequired: job.skillsRequired,
       status: job.status,
@@ -353,6 +391,41 @@ export const deleteJob = async (req, res) => {
     if (!job) return res.status(404).json({ message: "Job not found" });
 
     res.status(200).json({ message: "Job deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Add a new endpoint to get jobs by budget type
+export const getJobsByBudgetType = async (req, res) => {
+  try {
+    const { budgetType, page = 1, limit = 10 } = req.query;
+
+    if (!budgetType || !["open_to_offer", "fixed"].includes(budgetType)) {
+      return res.status(400).json({
+        message:
+          "Invalid budget type. Must be either 'open_to_offer' or 'fixed'",
+      });
+    }
+
+    const filter = {
+      status: "open",
+      openToOffer: budgetType === "open_to_offer",
+    };
+
+    const jobs = await Job.find(filter)
+      .populate("clientId", "name email")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const transformedJobs = jobs.map((job) => ({
+      ...job.toObject(),
+      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      budget: job.openToOffer ? null : job.budget,
+    }));
+
+    res.status(200).json(transformedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

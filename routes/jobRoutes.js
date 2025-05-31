@@ -7,6 +7,7 @@ import {
   approveJobAcceptance,
   completeJob,
   getJobDetails,
+  getJobsByBudgetType,
 } from "../controllers/jobController.js";
 
 const router = express.Router();
@@ -286,5 +287,7 @@ router.put("/complete/:jobId", authMiddleware, completeJob);
  *         description: Internal server error
  */
 router.get("/:jobId/details", authMiddleware, getJobDetails);
+
+router.get("/budget-type", authMiddleware, getJobsByBudgetType);
 
 export default router;
