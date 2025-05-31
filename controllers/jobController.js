@@ -89,19 +89,15 @@ export const createJob = async (req, res) => {
   }
 };
 
-// Get all open jobs
+// Get all open jobs - Modified to allow any logged-in user to view
 export const getOpenJobs = async (req, res) => {
   try {
-    if (!req.user.role.includes("worker")) {
-      return res.status(403).json({ message: "Only workers can view jobs" });
-    }
-
     const {
       page = 1,
       limit = 10,
       latitude,
       longitude,
-      radius, // can be undefined
+      radius,
       skills,
       budgetType,
     } = req.query;
@@ -118,12 +114,10 @@ export const getOpenJobs = async (req, res) => {
     }
 
     // Filter by nearby location (if latitude & longitude are provided)
-    if (latitude && longitude) {
+    if (latitude && longitude && radius) {
       const lat = parseFloat(latitude);
       const lon = parseFloat(longitude);
-      const defaultRadius = 5; // in km
-      const effectiveRadius = parseFloat(radius) || defaultRadius;
-      const maxDistance = effectiveRadius / 111; // Convert km to degrees (approx)
+      const maxDistance = parseFloat(radius) / 111; // Convert km to degrees (approx)
 
       filter["location.latitude"] = {
         $gte: lat - maxDistance,
@@ -146,11 +140,15 @@ export const getOpenJobs = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    // Transform the response to include budget type information
+    // Transform the response to include additional information
     const transformedJobs = jobs.map((job) => ({
       ...job.toObject(),
       budgetType: job.openToOffer ? "open_to_offer" : "fixed",
       budget: job.openToOffer ? null : job.budget,
+      canApply: req.user.role.includes("worker"), // Only workers can apply
+      isClient: req.user.id === job.clientId._id.toString(), // Check if current user is the client
+      isWorker:
+        req.user.id === (job.workerId ? job.workerId._id.toString() : null), // Check if current user is the worker
     }));
 
     res.status(200).json(transformedJobs);
