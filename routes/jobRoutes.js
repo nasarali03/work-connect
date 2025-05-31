@@ -5,6 +5,7 @@ import {
   getOpenJobs,
   requestJobAcceptance,
   acceptJobOffer,
+  rejectJobOffer,
   getJobOffers,
   completeJob,
   getJobDetails,
@@ -22,6 +23,8 @@ router.post("/:jobId/request-acceptance", authMiddleware, requestJobAcceptance);
 router.get("/:jobId/offers", authMiddleware, getJobOffers);
 
 router.post("/:jobId/approve-acceptance", authMiddleware, acceptJobOffer);
+
+router.post("/:jobId/reject-offer/:offerId", authMiddleware, rejectJobOffer);
 
 router.put("/complete/:jobId", authMiddleware, completeJob);
 

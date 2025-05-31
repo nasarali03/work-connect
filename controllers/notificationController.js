@@ -181,7 +181,7 @@ export const getNotificationDetails = async (req, res) => {
     notification.read = true;
     await notification.save();
 
-    // Get job details
+    // Get job details with populated client and worker
     const job = await Job.findById(notification.jobId)
       .populate("clientId", "firstName lastName email")
       .populate("workerId", "firstName lastName email");
@@ -197,53 +197,140 @@ export const getNotificationDetails = async (req, res) => {
       case "job_offer":
       case "offer_accepted":
       case "offer_rejected":
-        // Get job offer details
+        // Get job offer details with worker details
         const jobOffer = await JobOffer.findById(notification.data?.offerId)
-          .populate("workerId", "firstName lastName email")
+          .populate({
+            path: "workerId",
+            select: "firstName lastName email workerDetails",
+            populate: {
+              path: "workerDetails",
+              select:
+                "profilePicture profession skills experience about verificationStatus activityStatus",
+            },
+          })
           .populate("clientId", "firstName lastName email");
 
         if (jobOffer) {
+          // Calculate average rating from feedback
+          const feedback = jobOffer.workerId.workerDetails?.feedback || [];
+          const averageRating =
+            feedback.length > 0
+              ? (
+                  feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+                  feedback.length
+                ).toFixed(1)
+              : 0;
+
           additionalData = {
             offer: {
               id: jobOffer._id,
               amount: jobOffer.offerAmount,
               status: jobOffer.status,
               createdAt: jobOffer.createdAt,
+              rejectionReason: jobOffer.rejectionReason,
               worker: {
                 id: jobOffer.workerId._id,
                 name: `${jobOffer.workerId.firstName} ${jobOffer.workerId.lastName}`,
                 email: jobOffer.workerId.email,
+                profile: {
+                  image: jobOffer.workerId.workerDetails?.profilePicture || "",
+                  profession: jobOffer.workerId.workerDetails?.profession || "",
+                  skills: jobOffer.workerId.workerDetails?.skills || [],
+                  experience: jobOffer.workerId.workerDetails?.experience || "",
+                  about: jobOffer.workerId.workerDetails?.about || "",
+                  verificationStatus:
+                    jobOffer.workerId.workerDetails?.verificationStatus ||
+                    "pending",
+                  activityStatus:
+                    jobOffer.workerId.workerDetails?.activityStatus ||
+                    "offline",
+                  rating: parseFloat(averageRating),
+                  totalReviews: feedback.length,
+                },
               },
             },
+            workerId: notification.data.workerId,
           };
         }
         break;
 
       case "job_request":
-        // Get worker profile details
-        const workerProfile = await Profile.findOne({
-          userId: job.workerId,
-        }).select("skills experience rating");
+        // Get worker details
+        const worker = await User.findById(job.workerId).select(
+          "firstName lastName email workerDetails"
+        );
 
-        if (workerProfile) {
+        if (worker) {
+          const feedback = worker.workerDetails?.feedback || [];
+          const averageRating =
+            feedback.length > 0
+              ? (
+                  feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+                  feedback.length
+                ).toFixed(1)
+              : 0;
+
           additionalData = {
             workerProfile: {
-              skills: workerProfile.skills,
-              experience: workerProfile.experience,
-              rating: workerProfile.rating,
+              id: worker._id,
+              name: `${worker.firstName} ${worker.lastName}`,
+              email: worker.email,
+              image: worker.workerDetails?.profilePicture || "",
+              profession: worker.workerDetails?.profession || "",
+              skills: worker.workerDetails?.skills || [],
+              experience: worker.workerDetails?.experience || "",
+              about: worker.workerDetails?.about || "",
+              verificationStatus:
+                worker.workerDetails?.verificationStatus || "pending",
+              activityStatus: worker.workerDetails?.activityStatus || "offline",
+              rating: parseFloat(averageRating),
+              totalReviews: feedback.length,
             },
+            workerId: job.workerId,
           };
         }
         break;
 
       case "job_completed":
-        // Get completion details
-        additionalData = {
-          completionDate: job.completedAt,
-          paymentStatus: job.paymentStatus,
-          clientVerification: job.clientVerification,
-          workerVerification: job.workerVerification,
-        };
+        // Get worker details for completed job
+        const completedWorker = await User.findById(job.workerId).select(
+          "firstName lastName email workerDetails"
+        );
+
+        if (completedWorker) {
+          const feedback = completedWorker.workerDetails?.feedback || [];
+          const averageRating =
+            feedback.length > 0
+              ? (
+                  feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+                  feedback.length
+                ).toFixed(1)
+              : 0;
+
+          additionalData = {
+            completionDate: job.completedAt,
+            paymentStatus: job.paymentStatus,
+            clientVerification: job.clientVerification,
+            workerVerification: job.workerVerification,
+            workerId: job.workerId,
+            workerProfile: {
+              id: completedWorker._id,
+              name: `${completedWorker.firstName} ${completedWorker.lastName}`,
+              email: completedWorker.email,
+              image: completedWorker.workerDetails?.profilePicture || "",
+              profession: completedWorker.workerDetails?.profession || "",
+              skills: completedWorker.workerDetails?.skills || [],
+              experience: completedWorker.workerDetails?.experience || "",
+              about: completedWorker.workerDetails?.about || "",
+              verificationStatus:
+                completedWorker.workerDetails?.verificationStatus || "pending",
+              activityStatus:
+                completedWorker.workerDetails?.activityStatus || "offline",
+              rating: parseFloat(averageRating),
+              totalReviews: feedback.length,
+            },
+          };
+        }
         break;
     }
 
@@ -255,6 +342,7 @@ export const getNotificationDetails = async (req, res) => {
         message: notification.message,
         createdAt: notification.createdAt,
         read: notification.read,
+        data: notification.data,
       },
       job: {
         id: job._id,

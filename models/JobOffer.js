@@ -24,8 +24,12 @@ const JobOfferSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "accepted", "rejected", "expired"],
       default: "pending",
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
     },
     message: {
       type: String,

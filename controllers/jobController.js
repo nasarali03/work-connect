@@ -242,6 +242,7 @@ export const requestJobAcceptance = async (req, res) => {
         data: {
           offerId: jobOffer._id,
           offerAmount: offerAmount,
+          workerId: req.user.id, // Add worker's userId
         },
       });
 
@@ -265,6 +266,9 @@ export const requestJobAcceptance = async (req, res) => {
         message: `Worker ${workerName} wants to accept your job: ${job.title}`,
         type: "job_request",
         jobId: job._id,
+        data: {
+          workerId: req.user.id, // Add worker's userId
+        },
       });
 
       return res.status(200).json({
@@ -325,7 +329,10 @@ export const acceptJobOffer = async (req, res) => {
       message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}`,
       type: "offer_accepted",
       jobId: job._id,
-      data: { offerId: jobOffer._id },
+      data: {
+        offerId: jobOffer._id,
+        workerId: jobOffer.workerId, // Add worker's userId
+      },
     });
 
     res.status(200).json({
@@ -338,7 +345,92 @@ export const acceptJobOffer = async (req, res) => {
   }
 };
 
-// Get all offers for a job
+// Client rejects a job offer
+export const rejectJobOffer = async (req, res) => {
+  try {
+    if (!req.user.roles.includes("client")) {
+      return res
+        .status(403)
+        .json({ message: "Only clients can reject job offers" });
+    }
+
+    const { offerId } = req.params;
+    const { rejectionReason } = req.body; // Optional reason for rejection
+
+    // Find the job offer
+    const jobOffer = await JobOffer.findById(offerId);
+    if (!jobOffer) {
+      return res.status(404).json({ message: "Job offer not found" });
+    }
+
+    // Verify the client owns the job
+    const job = await Job.findById(jobOffer.jobId);
+    if (!job || job.clientId.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to reject this offer" });
+    }
+
+    if (jobOffer.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "This offer is no longer pending" });
+    }
+
+    // Update offer status
+    jobOffer.status = "rejected";
+    if (rejectionReason) {
+      jobOffer.rejectionReason = rejectionReason;
+    }
+    await jobOffer.save();
+
+    // Get worker's name from user model
+    const worker = await User.findById(jobOffer.workerId);
+    const workerName = `${worker.firstName} ${worker.lastName}`.trim();
+
+    // Get client's name from user model
+    const client = await User.findById(req.user.id);
+    const clientName = `${client.firstName} ${client.lastName}`.trim();
+
+    // Notify worker about the rejection
+    await Notification.create({
+      userId: jobOffer.workerId,
+      message: `Your offer of $${jobOffer.offerAmount} for the job "${
+        job.title
+      }" has been rejected${rejectionReason ? `: ${rejectionReason}` : ""}`,
+      type: "offer_rejected",
+      jobId: job._id,
+      data: {
+        offerId: jobOffer._id,
+        rejectionReason: rejectionReason || null,
+        workerId: jobOffer.workerId, // Add worker's userId
+      },
+    });
+
+    // Also notify the client (for their records)
+    await Notification.create({
+      userId: req.user.id,
+      message: `You have rejected ${workerName}'s offer of $${jobOffer.offerAmount} for the job "${job.title}"`,
+      type: "offer_rejected",
+      jobId: job._id,
+      data: {
+        offerId: jobOffer._id,
+        rejectionReason: rejectionReason || null,
+        workerId: jobOffer.workerId, // Add worker's userId
+      },
+    });
+
+    res.status(200).json({
+      message: "Job offer rejected successfully",
+      offer: jobOffer,
+    });
+  } catch (error) {
+    console.error("Error rejecting job offer:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all offers for a job (including rejected ones)
 export const getJobOffers = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -357,6 +449,7 @@ export const getJobOffers = async (req, res) => {
 
     res.status(200).json(offers);
   } catch (error) {
+    console.error("Error fetching job offers:", error);
     res.status(500).json({ error: error.message });
   }
 };
