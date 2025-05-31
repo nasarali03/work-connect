@@ -1,11 +1,13 @@
 import Job from "../models/job.js";
 import Profile from "../models/Profile.js";
 import User from "../models/user.js";
+import Notification from "../models/notification.js";
 
 // Create a job
 export const createJob = async (req, res) => {
   try {
-    if (req.user.role !== "client") {
+    console.log(req.user.roles);
+    if (!req.user.role.includes("client")) {
       return res.status(403).json({ message: "Only clients can post jobs" });
     }
 
