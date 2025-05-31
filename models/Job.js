@@ -5,7 +5,13 @@ const JobSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String, required: true },
     category: { type: String, required: true }, // Example: "Plumbing", "Electrician", "Construction"
-    budget: { type: Number, required: true, min: 0 },
+    budget: {
+      type: Number,
+      required: function () {
+        return !this.openToOffer; // Only required if openToOffer is false
+      },
+      min: 0,
+    },
     openToOffer: { type: Boolean, default: false },
     rightNow: { type: Boolean, default: false },
     scheduledDateTime: { type: Date },
@@ -55,5 +61,14 @@ const JobSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Add a pre-save middleware to handle budget validation
+JobSchema.pre("save", function (next) {
+  if (this.openToOffer) {
+    this.budget = null; // Set budget to null if openToOffer is true
+  }
+  next();
+});
+
 const Job = mongoose.model("Job", JobSchema);
 export default Job;

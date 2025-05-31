@@ -24,7 +24,7 @@ export const createJob = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!title || !description || !category || !budget || !location) {
+    if (!title || !description || !category || !location) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -101,7 +101,7 @@ export const getOpenJobs = async (req, res) => {
       limit = 10,
       latitude,
       longitude,
-      radius,
+      radius, // can be undefined
       skills,
       budgetType,
     } = req.query;
@@ -118,10 +118,12 @@ export const getOpenJobs = async (req, res) => {
     }
 
     // Filter by nearby location (if latitude & longitude are provided)
-    if (latitude && longitude && radius) {
+    if (latitude && longitude) {
       const lat = parseFloat(latitude);
       const lon = parseFloat(longitude);
-      const maxDistance = parseFloat(radius) / 111; // Convert km to degrees (approx)
+      const defaultRadius = 5; // in km
+      const effectiveRadius = parseFloat(radius) || defaultRadius;
+      const maxDistance = effectiveRadius / 111; // Convert km to degrees (approx)
 
       filter["location.latitude"] = {
         $gte: lat - maxDistance,
