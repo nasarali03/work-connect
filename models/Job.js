@@ -27,7 +27,13 @@ const JobSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["open", "in progress", "completed", "cancelled"],
+      enum: [
+        "open",
+        "in progress",
+        "completed",
+        "cancelled",
+        "pending_approval",
+      ],
       default: "open",
     },
 

@@ -3,6 +3,7 @@ import JobOffer from "../models/JobOffer.js";
 import Profile from "../models/Profile.js";
 import User from "../models/user.js";
 import Notification from "../models/notification.js";
+import ServiceFee from "../models/ServiceFee.js";
 
 // Create a job
 export const createJob = async (req, res) => {
@@ -189,25 +190,6 @@ export const requestJobAcceptance = async (req, res) => {
         .json({ message: "You already have a job in progress" });
     }
 
-    // Fetch worker's profile
-    const workerProfile = await Profile.findOne({ userId: req.user.id });
-    if (!workerProfile) {
-      return res
-        .status(400)
-        .json({ message: "Complete your profile before accepting jobs" });
-    }
-
-    // Check if worker has required skills
-    const hasRequiredSkills = job.skillsRequired.every((skill) =>
-      workerProfile.skills.includes(skill)
-    );
-
-    if (!hasRequiredSkills) {
-      return res
-        .status(403)
-        .json({ message: "You do not have the required skills for this job" });
-    }
-
     // Handle job acceptance based on whether it's open to offers or not
     if (job.openToOffer) {
       // Validate offer amount for jobs open to offers
@@ -284,7 +266,7 @@ export const requestJobAcceptance = async (req, res) => {
 // Client accepts a job offer
 export const acceptJobOffer = async (req, res) => {
   try {
-    if (!req.user.role.includes("client")) {
+    if (!req.user.roles.includes("client")) {
       return res
         .status(403)
         .json({ message: "Only clients can accept job offers" });
@@ -309,6 +291,11 @@ export const acceptJobOffer = async (req, res) => {
       return res.status(400).json({ message: "Job is no longer available" });
     }
 
+    // Calculate service fee (10% of offer amount)
+    const serviceFeePercentage = 10; // This could be configurable
+    const serviceFeeAmount =
+      (jobOffer.offerAmount * serviceFeePercentage) / 100;
+
     // Update job with worker and offer amount
     job.status = "in progress";
     job.workerId = jobOffer.workerId;
@@ -319,6 +306,21 @@ export const acceptJobOffer = async (req, res) => {
     jobOffer.status = "accepted";
     await jobOffer.save();
 
+    // Create service fee record
+    const serviceFee = new ServiceFee({
+      jobId: job._id,
+      jobOfferId: jobOffer._id,
+      workerId: jobOffer.workerId,
+      clientId: job.clientId,
+      jobAmount: jobOffer.offerAmount,
+      serviceFeePercentage: serviceFeePercentage,
+      serviceFeeAmount: serviceFeeAmount,
+      status: "pending",
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days after job completion
+    });
+
+    await serviceFee.save();
+
     // Get worker's name from user model
     const worker = await User.findById(jobOffer.workerId);
     const workerName = `${worker.firstName} ${worker.lastName}`.trim();
@@ -326,12 +328,17 @@ export const acceptJobOffer = async (req, res) => {
     // Notify worker
     await Notification.create({
       userId: jobOffer.workerId,
-      message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}`,
+      message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}. Service fee of $${serviceFeeAmount} will be due after job completion.`,
       type: "offer_accepted",
       jobId: job._id,
       data: {
         offerId: jobOffer._id,
-        workerId: jobOffer.workerId, // Add worker's userId
+        workerId: jobOffer.workerId,
+        serviceFee: {
+          amount: serviceFeeAmount,
+          percentage: serviceFeePercentage,
+          dueDate: serviceFee.dueDate,
+        },
       },
     });
 
@@ -339,6 +346,11 @@ export const acceptJobOffer = async (req, res) => {
       message: "Job offer accepted",
       job,
       offer: jobOffer,
+      serviceFee: {
+        amount: serviceFeeAmount,
+        percentage: serviceFeePercentage,
+        dueDate: serviceFee.dueDate,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -454,63 +466,61 @@ export const getJobOffers = async (req, res) => {
   }
 };
 
+// Update job completion to handle service fee
 export const completeJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
+    const { jobId } = req.params;
+    const job = await Job.findById(jobId);
 
-    // Worker requests completion
-    if (!req.user.role.includes("worker")) {
-      if (!job.workerId || job.workerId.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Unauthorized action" });
-      }
-
-      if (job.status !== "in progress") {
-        return res.status(400).json({
-          message: "Job must be in progress before requesting completion",
-        });
-      }
-
-      job.status = "awaiting confirmation";
-      job.paymentStatus = "in progress";
-      await job.save();
-
-      return res.status(200).json({
-        message: "Job completion requested. Waiting for client approval.",
-      });
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
     }
 
-    // Client confirms completion
-    if (req.user.role.includes("client")) {
-      if (!job.clientId || job.clientId.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Unauthorized action" });
-      }
+    // Verify the user is either the client or worker
+    if (
+      job.clientId.toString() !== req.user.id &&
+      job.workerId.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
 
-      if (job.status !== "awaiting confirmation") {
-        return res
-          .status(400)
-          .json({ message: "Job completion request not yet made by worker." });
-      }
+    // Update job status
+    job.status = "completed";
+    job.paymentStatus = "completed";
+    await job.save();
 
-      job.status = "completed";
-      job.paymentStatus = "completed";
-      await job.save();
+    // Find the service fee record
+    const serviceFee = await ServiceFee.findOne({ jobId: job._id });
+    if (serviceFee) {
+      // Update service fee status to pending payment
+      serviceFee.status = "pending";
+      serviceFee.dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Due in 7 days
+      await serviceFee.save();
 
-      // Increment worker's completed jobs count
-      await User.findByIdAndUpdate(job.workerId, {
-        $inc: { jobsCompleted: 1 },
-      });
-
-      return res.status(200).json({
-        message: "Job marked as completed.",
-        job: {
-          ...job.toObject(),
-          paymentStatus: job.paymentStatus,
+      // Notify worker about service fee
+      await Notification.create({
+        userId: job.workerId,
+        message: `Job "${job.title}" has been completed. Service fee of $${serviceFee.serviceFeeAmount} is due within 7 days.`,
+        type: "service_fee_due",
+        jobId: job._id,
+        data: {
+          serviceFeeId: serviceFee._id,
+          amount: serviceFee.serviceFeeAmount,
+          dueDate: serviceFee.dueDate,
         },
       });
     }
 
-    return res.status(403).json({ message: "Unauthorized action" });
+    res.status(200).json({
+      message: "Job marked as completed",
+      job,
+      serviceFee: serviceFee
+        ? {
+            amount: serviceFee.serviceFeeAmount,
+            dueDate: serviceFee.dueDate,
+          }
+        : null,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
