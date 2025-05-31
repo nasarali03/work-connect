@@ -18,9 +18,10 @@ import {
   uploadAdminImage,
   getFeedback,
   getAverageRating,
+  getWorkerProfile,
+  getWorkerServiceFeeDetails,
 } from "../controllers/adminController.js";
 import adminAuth from "../middlewares/adminAuth.js";
-
 const router = express.Router();
 
 router.post("/register", adminRegister);
@@ -60,5 +61,14 @@ router.get("/feedback/:workerId", getFeedback);
 
 // Get average rating for a worker
 router.get("/feedback/:workerId/average", getAverageRating);
+
+// Worker profile routes
+router.get("/workers/:workerId", adminAuth, getWorkerProfile);
+router.get("/workers", adminAuth, getAllWorkers);
+router.get(
+  "/workers/:workerId/service-fees",
+  adminAuth,
+  getWorkerServiceFeeDetails
+);
 
 export default router;

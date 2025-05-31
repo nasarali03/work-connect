@@ -3,6 +3,7 @@ import Job from "../models/job.js";
 import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import ServiceFee from "../models/ServiceFee.js";
 
 export const adminRegister = async (req, res) => {
   try {
@@ -165,12 +166,42 @@ export const getAllClients = async (req, res) => {
 export const getAllWorkers = async (req, res) => {
   try {
     const workers = await User.find({
-      $and: [
-        { roles: { $in: ["worker"] } }, // Must have "worker" in roles
-        { roles: { $ne: ["client"] } }, // Exclude pure clients
-      ],
+      $and: [{ roles: { $in: ["worker"] } }, { roles: { $ne: ["client"] } }],
     }).select("-password");
-    res.status(200).json(workers);
+
+    // Get service fee information for each worker
+    const workersWithFees = await Promise.all(
+      workers.map(async (worker) => {
+        const serviceFees = await ServiceFee.find({ workerId: worker._id });
+
+        const feeStats = serviceFees.reduce(
+          (stats, fee) => {
+            stats.totalFees += fee.serviceFeeAmount;
+            if (fee.status === "paid") {
+              stats.paidFees += fee.serviceFeeAmount;
+            } else if (fee.status === "pending") {
+              stats.pendingFees += fee.serviceFeeAmount;
+            } else if (fee.status === "overdue") {
+              stats.overdueFees += fee.serviceFeeAmount;
+            }
+            return stats;
+          },
+          {
+            totalFees: 0,
+            paidFees: 0,
+            pendingFees: 0,
+            overdueFees: 0,
+          }
+        );
+
+        return {
+          ...worker.toObject(),
+          serviceFees: feeStats,
+        };
+      })
+    );
+
+    res.status(200).json(workersWithFees);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -380,5 +411,193 @@ export const getAverageRating = async (req, res) => {
   } catch (error) {
     console.error("Error calculating average rating:", error);
     res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// Get worker profile details with service fees
+export const getWorkerProfile = async (req, res) => {
+  try {
+    const workerId = req.params.workerId;
+
+    // Find worker and select relevant fields
+    const worker = await User.findById(workerId).select("-password").lean();
+
+    if (!worker || !worker.roles.includes("worker")) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    // Calculate average rating
+    const feedback = worker.workerDetails?.feedback || [];
+    const averageRating =
+      feedback.length > 0
+        ? (
+            feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+            feedback.length
+          ).toFixed(2)
+        : 0;
+
+    // Get service fee information
+    const serviceFees = await ServiceFee.find({ workerId })
+      .populate("jobId", "title status")
+      .populate("clientId", "firstName lastName")
+      .sort({ createdAt: -1 });
+
+    // Calculate service fee statistics
+    const feeStats = serviceFees.reduce(
+      (stats, fee) => {
+        stats.totalJobs += 1;
+        stats.totalAmount += fee.jobAmount;
+        stats.totalServiceFees += fee.serviceFeeAmount;
+
+        if (fee.status === "paid") {
+          stats.paidFees += fee.serviceFeeAmount;
+          stats.paidJobs += 1;
+        } else if (fee.status === "pending") {
+          stats.pendingFees += fee.serviceFeeAmount;
+          stats.pendingJobs += 1;
+        } else if (fee.status === "overdue") {
+          stats.overdueFees += fee.serviceFeeAmount;
+          stats.overdueJobs += 1;
+        }
+
+        return stats;
+      },
+      {
+        totalJobs: 0,
+        totalAmount: 0,
+        totalServiceFees: 0,
+        paidFees: 0,
+        paidJobs: 0,
+        pendingFees: 0,
+        pendingJobs: 0,
+        overdueFees: 0,
+        overdueJobs: 0,
+      }
+    );
+
+    // Structure the response
+    const workerProfile = {
+      personalInfo: {
+        id: worker._id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        email: worker.email,
+        phoneNumber: worker.phoneNumber,
+        profilePicture: worker.profilePicture,
+        location: worker.location,
+      },
+      professionalInfo: {
+        profession: worker.workerDetails.profession,
+        skills: worker.workerDetails.skills,
+        experience: worker.workerDetails.experience,
+        about: worker.workerDetails.about,
+        verificationStatus: worker.workerDetails.verificationStatus,
+      },
+      activity: {
+        status: worker.workerDetails.activityStatus || "offline",
+        lastActive: worker.workerDetails.lastActive,
+        jobsAccepted: worker.jobsAccepted,
+        jobsCompleted: worker.jobsCompleted,
+      },
+      performance: {
+        averageRating: parseFloat(averageRating),
+        totalReviews: feedback.length,
+        recentFeedback: feedback.slice(-3), // Get last 3 feedback entries
+      },
+      documents: {
+        cnic: worker.workerDetails?.cnic,
+        cnicFront: worker.workerDetails?.cnicFront || "",
+        cnicBack: worker.workerDetails?.cnicBack || "",
+        certificate: worker.workerDetails?.certificate || "",
+      },
+      serviceFees: {
+        statistics: feeStats,
+        recentFees: serviceFees.slice(0, 5).map((fee) => ({
+          id: fee._id,
+          jobTitle: fee.jobId.title,
+          jobAmount: fee.jobAmount,
+          serviceFeeAmount: fee.serviceFeeAmount,
+          status: fee.status,
+          dueDate: fee.dueDate,
+          paymentDate: fee.paymentDate,
+          clientName: `${fee.clientId.firstName} ${fee.clientId.lastName}`,
+          createdAt: fee.createdAt,
+        })),
+      },
+    };
+
+    res.status(200).json(workerProfile);
+  } catch (error) {
+    console.error("Error fetching worker profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Get service fee details for a specific worker
+export const getWorkerServiceFeeDetails = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { status, startDate, endDate } = req.query;
+
+    let query = { workerId };
+
+    // Add status filter if provided
+    if (status) {
+      query.status = status;
+    }
+
+    // Add date range filter if provided
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const serviceFees = await ServiceFee.find(query)
+      .populate("jobId", "title status")
+      .populate("clientId", "firstName lastName")
+      .sort({ createdAt: -1 });
+
+    // Calculate totals
+    const totals = serviceFees.reduce(
+      (acc, fee) => {
+        acc.totalJobs += 1;
+        acc.totalAmount += fee.jobAmount;
+        acc.totalServiceFees += fee.serviceFeeAmount;
+
+        if (fee.status === "paid") {
+          acc.paidFees += fee.serviceFeeAmount;
+          acc.paidJobs += 1;
+        } else if (fee.status === "pending") {
+          acc.pendingFees += fee.serviceFeeAmount;
+          acc.pendingJobs += 1;
+        } else if (fee.status === "overdue") {
+          acc.overdueFees += fee.serviceFeeAmount;
+          acc.overdueJobs += 1;
+        }
+
+        return acc;
+      },
+      {
+        totalJobs: 0,
+        totalAmount: 0,
+        totalServiceFees: 0,
+        paidFees: 0,
+        paidJobs: 0,
+        pendingFees: 0,
+        pendingJobs: 0,
+        overdueFees: 0,
+        overdueJobs: 0,
+      }
+    );
+
+    res.status(200).json({
+      serviceFees,
+      totals,
+      count: serviceFees.length,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
