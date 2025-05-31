@@ -1,4 +1,5 @@
 import Job from "../models/job.js";
+import JobOffer from "../models/JobOffer.js";
 import Profile from "../models/Profile.js";
 import User from "../models/user.js";
 import Notification from "../models/notification.js";
@@ -6,7 +7,7 @@ import Notification from "../models/notification.js";
 // Create a job
 export const createJob = async (req, res) => {
   try {
-    console.log(req.user.roles);
+    console.log(req.user.role);
     if (!req.user.role.includes("client")) {
       return res.status(403).json({ message: "Only clients can post jobs" });
     }
@@ -135,7 +136,10 @@ export const getOpenJobs = async (req, res) => {
     }
 
     const jobs = await Job.find(filter)
-      .populate("clientId", "name email")
+      .populate(
+        "clientId",
+        "firstName lastName phoneNumber profilePicture email"
+      )
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -157,14 +161,17 @@ export const getOpenJobs = async (req, res) => {
   }
 };
 
-// Worker requests to accept a job
+// Worker requests to accept a job or makes an offer
 export const requestJobAcceptance = async (req, res) => {
   try {
     if (!req.user.role.includes("worker")) {
       return res.status(403).json({ message: "Only workers can accept jobs" });
     }
 
-    const job = await Job.findById(req.params.jobId);
+    const { offerAmount } = req.body;
+    const jobId = req.params.jobId;
+
+    const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
 
     if (job.status !== "open") {
@@ -201,65 +208,154 @@ export const requestJobAcceptance = async (req, res) => {
         .json({ message: "You do not have the required skills for this job" });
     }
 
-    // Mark job as "pending approval"
-    job.status = "pending_approval";
-    job.workerId = req.user.id;
-    await job.save();
+    // Handle job acceptance based on whether it's open to offers or not
+    if (job.openToOffer) {
+      // Validate offer amount for jobs open to offers
+      if (!offerAmount || typeof offerAmount !== "number" || offerAmount <= 0) {
+        return res.status(400).json({
+          message: "Valid offer amount is required for jobs open to offers",
+        });
+      }
 
-    // Notify client (store notification in DB)
-    await Notification.create({
-      userId: job.clientId,
-      message: `Worker ${req.user.name} wants to accept your job: ${job.title}`,
-      type: "job_request",
-      jobId: job._id,
-    });
+      // Get worker's name from user model
+      const worker = await User.findById(req.user.id);
+      const workerName = `${worker.firstName} ${worker.lastName}`.trim();
 
-    res
-      .status(200)
-      .json({ message: "Job request sent to client for approval", job });
+      // Create a job offer
+      const jobOffer = new JobOffer({
+        jobId: job._id,
+        workerId: req.user.id,
+        clientId: job.clientId,
+        offerAmount: offerAmount,
+        status: "pending",
+        message: `Worker ${workerName} has made an offer of $${offerAmount} for your job: ${job.title}`,
+      });
+
+      await jobOffer.save();
+
+      // Notify client about the offer
+      await Notification.create({
+        userId: job.clientId,
+        message: `Worker ${workerName} has made an offer of $${offerAmount} for your job: ${job.title}`,
+        type: "job_offer",
+        jobId: job._id,
+        data: {
+          offerId: jobOffer._id,
+          offerAmount: offerAmount,
+        },
+      });
+
+      return res.status(200).json({
+        message: "Job offer sent to client for review",
+        offer: jobOffer,
+      });
+    } else {
+      // For fixed budget jobs, proceed with normal acceptance
+      job.status = "pending_approval";
+      job.workerId = req.user.id;
+      await job.save();
+
+      // Get worker's name from user model
+      const worker = await User.findById(req.user.id);
+      const workerName = `${worker.firstName} ${worker.lastName}`.trim();
+
+      // Notify client
+      await Notification.create({
+        userId: job.clientId,
+        message: `Worker ${workerName} wants to accept your job: ${job.title}`,
+        type: "job_request",
+        jobId: job._id,
+      });
+
+      return res.status(200).json({
+        message: "Job request sent to client for approval",
+        job,
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Client approves worker's job request
-export const approveJobAcceptance = async (req, res) => {
+// Client accepts a job offer
+export const acceptJobOffer = async (req, res) => {
   try {
-    if (req.user.role !== "client") {
+    if (!req.user.role.includes("client")) {
       return res
         .status(403)
-        .json({ message: "Only clients can approve job requests" });
+        .json({ message: "Only clients can accept job offers" });
     }
 
-    const job = await Job.findById(req.params.jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
+    const { offerId } = req.params;
+    const jobOffer = await JobOffer.findById(offerId);
 
-    if (job.clientId.toString() !== req.user.id) {
-      return res.status(403).json({ message: "Unauthorized action" });
+    if (!jobOffer) {
+      return res.status(404).json({ message: "Job offer not found" });
     }
 
-    if (job.status !== "pending_approval") {
+    // Verify the client owns the job
+    const job = await Job.findById(jobOffer.jobId);
+    if (!job || job.clientId.toString() !== req.user.id) {
       return res
-        .status(400)
-        .json({ message: "No pending worker request for this job" });
+        .status(403)
+        .json({ message: "Unauthorized to accept this offer" });
     }
 
-    // Move job to "in progress"
+    if (job.status !== "open") {
+      return res.status(400).json({ message: "Job is no longer available" });
+    }
+
+    // Update job with worker and offer amount
     job.status = "in progress";
+    job.workerId = jobOffer.workerId;
+    job.budget = jobOffer.offerAmount; // Set the budget to the accepted offer amount
     await job.save();
 
-    // Increment worker's accepted jobs count
-    await User.findByIdAndUpdate(job.workerId, { $inc: { jobsAccepted: 1 } });
+    // Update offer status
+    jobOffer.status = "accepted";
+    await jobOffer.save();
+
+    // Get worker's name from user model
+    const worker = await User.findById(jobOffer.workerId);
+    const workerName = `${worker.firstName} ${worker.lastName}`.trim();
 
     // Notify worker
     await Notification.create({
-      userId: job.workerId,
-      message: `Your job request for "${job.title}" has been approved`,
-      type: "job_approved",
+      userId: jobOffer.workerId,
+      message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}`,
+      type: "offer_accepted",
       jobId: job._id,
+      data: { offerId: jobOffer._id },
     });
 
-    res.status(200).json({ message: "Job approved and in progress", job });
+    res.status(200).json({
+      message: "Job offer accepted",
+      job,
+      offer: jobOffer,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all offers for a job
+export const getJobOffers = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    // Verify the client owns the job
+    const job = await Job.findById(jobId);
+    if (!job || job.clientId.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to view offers for this job" });
+    }
+
+    const offers = await JobOffer.find({ jobId })
+      .populate("workerId", "firstName lastName email")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(offers);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
