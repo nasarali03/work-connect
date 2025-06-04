@@ -364,6 +364,9 @@ export const getNotificationDetails = async (req, res) => {
               id: job.workerId._id,
               name: `${job.workerId.firstName} ${job.workerId.lastName}`,
               email: job.workerId.email,
+              about: job.workerId.about || "",
+              skills: job.workerId.workerDetails.skills || [],
+              profilePicture: job.workerId.workerDetails.profilePicture || "",
             }
           : null,
       },
