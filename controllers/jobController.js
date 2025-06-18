@@ -322,7 +322,7 @@ export const requestJobAcceptance = async (req, res) => {
 // Client accepts a job offer
 export const acceptJobOffer = async (req, res) => {
   try {
-    if (!req.user.roles.includes("client")) {
+    if (!req.user.role.includes("client")) {
       return res
         .status(403)
         .json({ message: "Only clients can accept job offers" });
@@ -446,7 +446,7 @@ export const acceptJobOffer = async (req, res) => {
 // Client rejects a job offer
 export const rejectJobOffer = async (req, res) => {
   try {
-    if (!req.user.roles.includes("client")) {
+    if (!req.user.role.includes("client")) {
       return res
         .status(403)
         .json({ message: "Only clients can reject job offers" });
