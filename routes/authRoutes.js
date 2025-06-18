@@ -4,6 +4,8 @@ import {
   registerUser,
   loginUser,
   updateProfile,
+  requestPasswordReset,
+  resetPassword,
 } from "../controllers/authController.js";
 const router = express.Router();
 /**
@@ -81,5 +83,9 @@ router.put("/update-profile", updateProfile);
  *         description: Internal server error
  */
 router.post("/login", loginUser);
+
+// Password reset routes
+router.post("/forgot-password", requestPasswordReset);
+router.post("/reset-password", resetPassword);
 
 export default router;
