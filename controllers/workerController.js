@@ -306,7 +306,7 @@ export const getWorkerProfile = async (req, res) => {
         lastName: worker.lastName,
         email: worker.email,
         phoneNumber: worker.phoneNumber,
-        profilePicture: worker.profilePicture,
+        profilePicture: worker.workerDetails.profilePicture,
         location: worker.location,
       },
       professionalInfo: {

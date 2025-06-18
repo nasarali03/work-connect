@@ -190,6 +190,15 @@ export const requestJobAcceptance = async (req, res) => {
         .json({ message: "You already have a job in progress" });
     }
 
+    // Get worker's complete details
+    const worker = await User.findById(req.user.id)
+      .select(
+        "firstName lastName email phoneNumber profilePicture workerDetails jobsCompleted jobsAccepted"
+      )
+      .lean();
+
+    const workerName = `${worker.firstName} ${worker.lastName}`.trim();
+
     // Handle job acceptance based on whether it's open to offers or not
     if (job.openToOffer) {
       // Validate offer amount for jobs open to offers
@@ -198,10 +207,6 @@ export const requestJobAcceptance = async (req, res) => {
           message: "Valid offer amount is required for jobs open to offers",
         });
       }
-
-      // Get worker's name from user model
-      const worker = await User.findById(req.user.id);
-      const workerName = `${worker.firstName} ${worker.lastName}`.trim();
 
       // Create a job offer
       const jobOffer = new JobOffer({
@@ -215,7 +220,7 @@ export const requestJobAcceptance = async (req, res) => {
 
       await jobOffer.save();
 
-      // Notify client about the offer
+      // Notify client about the offer with complete worker details
       await Notification.create({
         userId: job.clientId,
         message: `Worker ${workerName} has made an offer of $${offerAmount} for your job: ${job.title}`,
@@ -224,7 +229,27 @@ export const requestJobAcceptance = async (req, res) => {
         data: {
           offerId: jobOffer._id,
           offerAmount: offerAmount,
-          workerId: req.user.id, // Add worker's userId
+          workerId: req.user.id,
+          worker: {
+            fullName: workerName,
+            email: worker.email,
+            phoneNumber: worker.phoneNumber,
+            profilePicture: worker.profilePicture,
+            skills: worker.workerDetails?.skills || [],
+            experience: worker.workerDetails?.experience,
+            profession: worker.workerDetails?.profession,
+            rating:
+              worker.workerDetails?.feedback?.length > 0
+                ? worker.workerDetails.feedback.reduce(
+                    (acc, curr) => acc + curr.rating,
+                    0
+                  ) / worker.workerDetails.feedback.length
+                : 0,
+            jobsCompleted: worker.jobsCompleted,
+            jobsAccepted: worker.jobsAccepted,
+            verificationStatus: worker.workerDetails?.verificationStatus,
+            about: worker.workerDetails?.about,
+          },
         },
       });
 
@@ -233,29 +258,60 @@ export const requestJobAcceptance = async (req, res) => {
         offer: jobOffer,
       });
     } else {
-      // For fixed budget jobs, proceed with normal acceptance
+      // For fixed budget jobs, create a job offer with the fixed budget amount
+      const jobOffer = new JobOffer({
+        jobId: job._id,
+        workerId: req.user.id,
+        clientId: job.clientId,
+        offerAmount: job.budget,
+        status: "pending",
+        message: `Worker ${workerName} wants to accept your job: ${job.title} for the fixed budget of $${job.budget}`,
+      });
+
+      await jobOffer.save();
+
+      // Update job status
       job.status = "pending_approval";
       job.workerId = req.user.id;
       await job.save();
 
-      // Get worker's name from user model
-      const worker = await User.findById(req.user.id);
-      const workerName = `${worker.firstName} ${worker.lastName}`.trim();
-
-      // Notify client
+      // Notify client with complete worker details
       await Notification.create({
         userId: job.clientId,
-        message: `Worker ${workerName} wants to accept your job: ${job.title}`,
+        message: `Worker ${workerName} wants to accept your job: ${job.title} for the fixed budget of $${job.budget}`,
         type: "job_request",
         jobId: job._id,
         data: {
-          workerId: req.user.id, // Add worker's userId
+          offerId: jobOffer._id,
+          workerId: req.user.id,
+          offerAmount: job.budget,
+          worker: {
+            fullName: workerName,
+            email: worker.email,
+            phoneNumber: worker.phoneNumber,
+            profilePicture: worker.profilePicture,
+            skills: worker.workerDetails?.skills || [],
+            experience: worker.workerDetails?.experience,
+            profession: worker.workerDetails?.profession,
+            rating:
+              worker.workerDetails?.feedback?.length > 0
+                ? worker.workerDetails.feedback.reduce(
+                    (acc, curr) => acc + curr.rating,
+                    0
+                  ) / worker.workerDetails.feedback.length
+                : 0,
+            jobsCompleted: worker.jobsCompleted,
+            jobsAccepted: worker.jobsAccepted,
+            verificationStatus: worker.workerDetails?.verificationStatus,
+            about: worker.workerDetails?.about,
+          },
         },
       });
 
       return res.status(200).json({
         message: "Job request sent to client for approval",
         job,
+        offer: jobOffer,
       });
     }
   } catch (error) {
@@ -291,6 +347,15 @@ export const acceptJobOffer = async (req, res) => {
       return res.status(400).json({ message: "Job is no longer available" });
     }
 
+    // Get client's complete details
+    const client = await User.findById(req.user.id)
+      .select(
+        "firstName lastName email phoneNumber profilePicture location jobsPosted"
+      )
+      .lean();
+
+    const clientName = `${client.firstName} ${client.lastName}`.trim();
+
     // Calculate service fee (10% of offer amount)
     const serviceFeePercentage = 10; // This could be configurable
     const serviceFeeAmount =
@@ -325,7 +390,7 @@ export const acceptJobOffer = async (req, res) => {
     const worker = await User.findById(jobOffer.workerId);
     const workerName = `${worker.firstName} ${worker.lastName}`.trim();
 
-    // Notify worker
+    // Notify worker with complete client details
     await Notification.create({
       userId: jobOffer.workerId,
       message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}. Service fee of $${serviceFeeAmount} will be due after job completion.`,
@@ -338,6 +403,27 @@ export const acceptJobOffer = async (req, res) => {
           amount: serviceFeeAmount,
           percentage: serviceFeePercentage,
           dueDate: serviceFee.dueDate,
+        },
+        client: {
+          fullName: clientName,
+          email: client.email,
+          phoneNumber: client.phoneNumber,
+          profilePicture: client.profilePicture,
+          location: client.location,
+          jobsPosted: client.jobsPosted,
+          // Add any additional client details that might be relevant
+          address: client.location?.address,
+          latitude: client.location?.latitude,
+          longitude: client.location?.longitude,
+        },
+        job: {
+          title: job.title,
+          description: job.description,
+          category: job.category,
+          location: job.location,
+          skillsRequired: job.skillsRequired,
+          scheduledDateTime: job.scheduledDateTime,
+          rightNow: job.rightNow,
         },
       },
     });
@@ -389,6 +475,15 @@ export const rejectJobOffer = async (req, res) => {
         .json({ message: "This offer is no longer pending" });
     }
 
+    // Get client's complete details
+    const client = await User.findById(req.user.id)
+      .select(
+        "firstName lastName email phoneNumber profilePicture location jobsPosted"
+      )
+      .lean();
+
+    const clientName = `${client.firstName} ${client.lastName}`.trim();
+
     // Update offer status
     jobOffer.status = "rejected";
     if (rejectionReason) {
@@ -400,11 +495,7 @@ export const rejectJobOffer = async (req, res) => {
     const worker = await User.findById(jobOffer.workerId);
     const workerName = `${worker.firstName} ${worker.lastName}`.trim();
 
-    // Get client's name from user model
-    const client = await User.findById(req.user.id);
-    const clientName = `${client.firstName} ${client.lastName}`.trim();
-
-    // Notify worker about the rejection
+    // Notify worker about the rejection with complete client details
     await Notification.create({
       userId: jobOffer.workerId,
       message: `Your offer of $${jobOffer.offerAmount} for the job "${
@@ -415,7 +506,27 @@ export const rejectJobOffer = async (req, res) => {
       data: {
         offerId: jobOffer._id,
         rejectionReason: rejectionReason || null,
-        workerId: jobOffer.workerId, // Add worker's userId
+        workerId: jobOffer.workerId,
+        client: {
+          fullName: clientName,
+          email: client.email,
+          phoneNumber: client.phoneNumber,
+          profilePicture: client.profilePicture,
+          location: client.location,
+          jobsPosted: client.jobsPosted,
+          address: client.location?.address,
+          latitude: client.location?.latitude,
+          longitude: client.location?.longitude,
+        },
+        job: {
+          title: job.title,
+          description: job.description,
+          category: job.category,
+          location: job.location,
+          skillsRequired: job.skillsRequired,
+          scheduledDateTime: job.scheduledDateTime,
+          rightNow: job.rightNow,
+        },
       },
     });
 
@@ -428,7 +539,27 @@ export const rejectJobOffer = async (req, res) => {
       data: {
         offerId: jobOffer._id,
         rejectionReason: rejectionReason || null,
-        workerId: jobOffer.workerId, // Add worker's userId
+        workerId: jobOffer.workerId,
+        client: {
+          fullName: clientName,
+          email: client.email,
+          phoneNumber: client.phoneNumber,
+          profilePicture: client.profilePicture,
+          location: client.location,
+          jobsPosted: client.jobsPosted,
+          address: client.location?.address,
+          latitude: client.location?.latitude,
+          longitude: client.location?.longitude,
+        },
+        job: {
+          title: job.title,
+          description: job.description,
+          category: job.category,
+          location: job.location,
+          skillsRequired: job.skillsRequired,
+          scheduledDateTime: job.scheduledDateTime,
+          rightNow: job.rightNow,
+        },
       },
     });
 
