@@ -7,6 +7,9 @@ import {
   requestPasswordReset,
   resetPassword,
   changePasswordByEmail,
+  requestVerificationCode,
+  verifyCode,
+  resetPasswordWithCode,
 } from "../controllers/authController.js";
 const router = express.Router();
 /**
@@ -85,10 +88,8 @@ router.put("/update-profile", updateProfile);
  */
 router.post("/login", loginUser);
 
-// Password reset routes
-router.post("/forgot-password", requestPasswordReset);
-router.post("/reset-password", resetPassword);
-
-router.post("/change-password", changePasswordByEmail);
+router.post("/request-verification-code", requestVerificationCode);
+router.post("/verify-code", verifyCode);
+router.post("/reset-password-with-code", resetPasswordWithCode);
 
 export default router;
