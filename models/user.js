@@ -65,8 +65,6 @@ const UserSchema = new mongoose.Schema(
     jobsAccepted: { type: Number, default: 0 }, // Number of jobs accepted
     jobsCompleted: { type: Number, default: 0 }, // Number of jobs completed
     active: { type: Boolean, default: true },
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
   },
   { timestamps: true }
 );

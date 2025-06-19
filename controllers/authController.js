@@ -125,106 +125,33 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// Request password reset
-export const requestPasswordReset = async (req, res) => {
+// Change password for any user by email (no login required)
+export const changePasswordByEmail = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, newPassword } = req.body;
 
     // Find user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = await bcrypt.hash(resetToken, 10);
-
-    // Save token to user
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
-    await user.save();
-
-    // Create reset URL
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-    // Send email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Password Reset Request",
-      html: `
-        <h3>Password Reset Request</h3>
-        <p>You requested a password reset for your Work Connect account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    res.status(200).json({
-      message: "Password reset email sent successfully",
-      // Don't send the token in response for security
-    });
-  } catch (error) {
-    console.error("Error in password reset request:", error);
-    res.status(500).json({ message: "Error sending password reset email" });
-  }
-};
-
-// Reset password
-export const resetPassword = async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-
-    // Find user with valid reset token
-    const user = await User.findOne({
-      resetPasswordExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        message: "Password reset token is invalid or has expired",
-      });
-    }
-
-    // Verify token
-    const isValidToken = await bcrypt.compare(token, user.resetPasswordToken);
-    if (!isValidToken) {
-      return res.status(400).json({
-        message: "Password reset token is invalid",
-      });
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Update user's password and clear reset token fields
-    user.password = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    // Hash and update new password
+    user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     // Send confirmation email
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: user.email,
-      subject: "Password Reset Successful",
+      subject: "Password Changed Successfully",
       html: `
-        <h3>Password Reset Successful</h3>
-        <p>Your password has been successfully reset.</p>
-        <p>If you didn't make this change, please contact support immediately.</p>
+        <h3>Password Changed</h3>
+        <p>Your password was changed successfully. If you did not perform this action, please contact support immediately.</p>
       `,
     };
-
     await transporter.sendMail(mailOptions);
 
-    res.status(200).json({ message: "Password has been reset successfully" });
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
-    console.error("Error in password reset:", error);
-    res.status(500).json({ message: "Error resetting password" });
+    res.status(500).json({ message: "Error changing password" });
   }
 };

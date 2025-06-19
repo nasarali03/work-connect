@@ -4,8 +4,7 @@ import {
   registerUser,
   loginUser,
   updateProfile,
-  requestPasswordReset,
-  resetPassword,
+  changePasswordByEmail,
 } from "../controllers/authController.js";
 const router = express.Router();
 /**
@@ -84,8 +83,6 @@ router.put("/update-profile", updateProfile);
  */
 router.post("/login", loginUser);
 
-// Password reset routes
-router.post("/forgot-password", requestPasswordReset);
-router.post("/reset-password", resetPassword);
+router.post("/change-password", changePasswordByEmail);
 
 export default router;
