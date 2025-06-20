@@ -1,6 +1,5 @@
 import Job from "../models/job.js";
 import JobOffer from "../models/JobOffer.js";
-import Profile from "../models/Profile.js";
 import User from "../models/user.js";
 import Notification from "../models/notification.js";
 import ServiceFee from "../models/ServiceFee.js";

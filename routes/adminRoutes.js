@@ -20,6 +20,7 @@ import {
   getAverageRating,
   getWorkerProfile,
   getWorkerServiceFeeDetails,
+  getAllComplaints,
 } from "../controllers/adminController.js";
 import adminAuth from "../middlewares/adminAuth.js";
 const router = express.Router();
@@ -70,5 +71,8 @@ router.get(
   adminAuth,
   getWorkerServiceFeeDetails
 );
+
+// Get all complaints
+router.get("/complaints", adminAuth, getAllComplaints);
 
 export default router;

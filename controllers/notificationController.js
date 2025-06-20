@@ -2,7 +2,6 @@ import Notification from "../models/notification.js";
 import User from "../models/user.js";
 import JobOffer from "../models/JobOffer.js";
 import Job from "../models/job.js";
-import Profile from "../models/Profile.js";
 
 // Get all notifications for a user
 export const getUserNotifications = async (req, res) => {

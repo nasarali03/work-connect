@@ -4,6 +4,7 @@ import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import ServiceFee from "../models/ServiceFee.js";
+import Complaint from "../models/complaint.js";
 
 export const adminRegister = async (req, res) => {
   try {
@@ -483,7 +484,7 @@ export const getWorkerProfile = async (req, res) => {
         lastName: worker.lastName,
         email: worker.email,
         phoneNumber: worker.phoneNumber,
-        profilePicture: worker.profilePicture,
+        profilePicture: worker.workerDetails.profilePicture,
         location: worker.location,
       },
       professionalInfo: {
@@ -599,5 +600,19 @@ export const getWorkerServiceFeeDetails = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Get all complaints with full user data
+export const getAllComplaints = async (req, res) => {
+  try {
+    const complaints = await Complaint.find()
+      .populate("user") // Populate all user fields
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ complaints });
+  } catch (error) {
+    console.error("Error fetching complaints:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

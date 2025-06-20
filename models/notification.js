@@ -28,6 +28,7 @@ const NotificationSchema = new mongoose.Schema(
         "offer_accepted",
         "offer_rejected",
         "offer_expired",
+        "review_received",
       ],
       required: true,
     },

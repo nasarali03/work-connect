@@ -9,7 +9,7 @@ import {
 
 const router = express.Router();
 
-router.post("/add-feedback", authMiddleware, createFeedback);
+router.post("/", authMiddleware, createFeedback);
 
 router.get("/all-feedbacks", authMiddleware, getAllFeedbacks);
 router.get("/feedback/:id", authMiddleware, getFeedbackById);

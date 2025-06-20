@@ -1,19 +1,65 @@
-import Feedback from "../models/Feedback.js";
+import Feedback from "../models/feedback.js";
+import Job from "../models/job.js";
+import Notification from "../models/notification.js";
 // 1. Create feedback
 export const createFeedback = async (req, res) => {
   try {
-    const { description, rate } = req.body;
+    const { description, rate, jobId } = req.body;
     const userId = req.user.id;
 
+    // Find the job and check if completed
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+    if (job.status !== "completed") {
+      return res
+        .status(400)
+        .json({ message: "Feedback can only be given after job completion." });
+    }
+    if (job.clientId.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Only the client can leave feedback for this job." });
+    }
+
+    // Check if feedback already exists for this job by this client
+    const existingFeedback = await Feedback.findOne({
+      user: userId,
+      job: jobId,
+    });
+    if (existingFeedback) {
+      return res
+        .status(400)
+        .json({ message: "Feedback already submitted for this job." });
+    }
+
+    // Create feedback
     const newFeedback = new Feedback({
       user: userId,
+      worker: job.workerId,
+      job: jobId,
       description,
       rate,
     });
 
     const savedFeedback = await newFeedback.save();
+
+    // Send notification to worker
+    await Notification.create({
+      userId: job.workerId,
+      message: `You have received a new review for the job "${job.title}".`,
+      type: "review_received",
+      jobId: job._id,
+      data: {
+        feedbackId: savedFeedback._id,
+        rate,
+        description,
+      },
+    });
+
     res.status(201).json({
-      message: "Feedback created successfully",
+      message: "Feedback created and worker notified successfully",
       feedback: savedFeedback,
     });
   } catch (error) {

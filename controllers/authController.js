@@ -69,25 +69,40 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// Update user profile
+// Update client profile (profile picture required, others optional)
 export const updateProfile = async (req, res) => {
   try {
-    const { email, firstName, lastName, location, phoneNumber } = req.body;
+    const userId = req.user.id;
+    const { firstName, lastName, phoneNumber, location, profilePicture } =
+      req.body;
 
-    // Find and update the user
-    const updatedUser = await User.findOneAndUpdate(
-      { email },
-      { firstName, lastName, location, phoneNumber },
-      { new: true } // Return the updated document
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+    // Require profile picture
+    if (!profilePicture) {
+      return res.status(400).json({ message: "Profile picture is required." });
     }
 
-    res.json({ message: "Profile updated successfully!", user: updatedUser });
+    // Find the user and ensure they are a client (not a worker)
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
+    if (user.roles.includes("worker")) {
+      return res
+        .status(403)
+        .json({ message: "This endpoint is for clients only." });
+    }
+
+    // Update fields
+    user.profilePicture = profilePicture;
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+    if (location !== undefined) user.location = location;
+
+    await user.save();
+
+    res.status(200).json({ message: "Profile updated successfully.", user });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
