@@ -18,7 +18,7 @@ export const submitComplaint = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found." });
 
     let finalProfession = profession;
-    if (user.role.includes("worker")) {
+    if (user.roles.includes("worker")) {
       // If worker, profession is required (either from body or user profile)
       if (!finalProfession) {
         // Try to get from user profile if not provided
@@ -59,7 +59,7 @@ export const getAllComplaints = async (req, res) => {
   try {
     const complaints = await Complaint.find().populate(
       "user",
-      "firstName lastName role"
+      "firstName lastName roles"
     );
     res.status(200).json(complaints);
   } catch (error) {
