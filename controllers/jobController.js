@@ -252,6 +252,9 @@ export const requestJobAcceptance = async (req, res) => {
         },
       });
 
+      // Increment jobsAccepted for the worker
+      await User.findByIdAndUpdate(req.user.id, { $inc: { jobsAccepted: 1 } });
+
       return res.status(200).json({
         message: "Job offer sent to client for review",
         offer: jobOffer,
@@ -306,6 +309,9 @@ export const requestJobAcceptance = async (req, res) => {
           },
         },
       });
+
+      // Increment jobsAccepted for the worker
+      await User.findByIdAndUpdate(req.user.id, { $inc: { jobsAccepted: 1 } });
 
       return res.status(200).json({
         message: "Job request sent to client for approval",
@@ -365,6 +371,11 @@ export const acceptJobOffer = async (req, res) => {
     job.workerId = jobOffer.workerId;
     job.budget = jobOffer.offerAmount; // Set the budget to the accepted offer amount
     await job.save();
+
+    // Increment jobsAccepted for the worker
+    await User.findByIdAndUpdate(jobOffer.workerId, {
+      $inc: { jobsAccepted: 1 },
+    });
 
     // Update offer status
     jobOffer.status = "accepted";
@@ -619,6 +630,13 @@ export const completeJob = async (req, res) => {
     job.paymentStatus = "completed";
     await job.save();
 
+    // Increment jobsCompleted for the worker
+    if (job.workerId) {
+      await User.findByIdAndUpdate(job.workerId, {
+        $inc: { jobsCompleted: 1 },
+      });
+    }
+
     // Find the service fee record
     const serviceFee = await ServiceFee.findOne({ jobId: job._id });
     if (serviceFee) {
@@ -804,6 +822,16 @@ export const markAsPaid = async (req, res) => {
       job,
       serviceFee,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getClientJobs = async (req, res) => {
+  try {
+    const clientId = req.user.id;
+    const jobs = await Job.find({ clientId }).sort({ createdAt: -1 });
+    res.status(200).json(jobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

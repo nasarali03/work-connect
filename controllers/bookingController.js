@@ -267,9 +267,7 @@ export const updateBookingStatus = async (req, res) => {
       await job.save();
 
       // Increment worker's accepted jobs count
-      await User.findByIdAndUpdate(userId, {
-        $inc: { jobsAccepted: 1 },
-      });
+      await User.findByIdAndUpdate(userId, { $inc: { jobsAccepted: 1 } });
 
       // Notify client
       const worker = await User.findById(booking.workerId).lean();
