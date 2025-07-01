@@ -267,7 +267,16 @@ export const updateBookingStatus = async (req, res) => {
       await job.save();
 
       // Increment worker's accepted jobs count
-      await User.findByIdAndUpdate(userId, { $inc: { jobsAccepted: 1 } });
+      console.log("Incrementing jobsAccepted for worker:", booking.workerId);
+      const resultAccepted = await User.findByIdAndUpdate(
+        booking.workerId,
+        { $inc: { jobsAccepted: 1 } },
+        { new: true }
+      );
+      console.log(
+        "Updated worker after jobsAccepted increment:",
+        resultAccepted
+      );
 
       // Notify client
       const worker = await User.findById(booking.workerId).lean();
@@ -367,9 +376,16 @@ export const updateBookingStatus = async (req, res) => {
         await job.save();
 
         // Increment worker's completed jobs count
-        await User.findByIdAndUpdate(booking.workerId, {
-          $inc: { jobsCompleted: 1 },
-        });
+        console.log("Incrementing jobsCompleted for worker:", booking.workerId);
+        const resultCompleted = await User.findByIdAndUpdate(
+          booking.workerId,
+          { $inc: { jobsCompleted: 1 } },
+          { new: true }
+        );
+        console.log(
+          "Updated worker after jobsCompleted increment:",
+          resultCompleted
+        );
 
         // Notify worker
         await Notification.create({

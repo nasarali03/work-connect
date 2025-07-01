@@ -252,8 +252,16 @@ export const requestJobAcceptance = async (req, res) => {
         },
       });
 
-      // Increment jobsAccepted for the worker
-      await User.findByIdAndUpdate(req.user.id, { $inc: { jobsAccepted: 1 } });
+      console.log("Incrementing jobsAccepted for worker:", jobOffer.workerId);
+      const resultAccepted = await User.findByIdAndUpdate(
+        jobOffer.workerId,
+        { $inc: { jobsAccepted: 1 } },
+        { new: true }
+      );
+      console.log(
+        "Updated worker after jobsAccepted increment:",
+        resultAccepted
+      );
 
       return res.status(200).json({
         message: "Job offer sent to client for review",
@@ -373,9 +381,13 @@ export const acceptJobOffer = async (req, res) => {
     await job.save();
 
     // Increment jobsAccepted for the worker
-    await User.findByIdAndUpdate(jobOffer.workerId, {
-      $inc: { jobsAccepted: 1 },
-    });
+    console.log("Incrementing jobsAccepted for worker:", jobOffer.workerId);
+    const resultAccepted = await User.findByIdAndUpdate(
+      jobOffer.workerId,
+      { $inc: { jobsAccepted: 1 } },
+      { new: true }
+    );
+    console.log("Updated worker after jobsAccepted increment:", resultAccepted);
 
     // Update offer status
     jobOffer.status = "accepted";
@@ -632,9 +644,16 @@ export const completeJob = async (req, res) => {
 
     // Increment jobsCompleted for the worker
     if (job.workerId) {
-      await User.findByIdAndUpdate(job.workerId, {
-        $inc: { jobsCompleted: 1 },
-      });
+      console.log("Incrementing jobsCompleted for worker:", job.workerId);
+      const resultCompleted = await User.findByIdAndUpdate(
+        job.workerId,
+        { $inc: { jobsCompleted: 1 } },
+        { new: true }
+      );
+      console.log(
+        "Updated worker after jobsCompleted increment:",
+        resultCompleted
+      );
     }
 
     // Find the service fee record
