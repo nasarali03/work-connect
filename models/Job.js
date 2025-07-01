@@ -64,6 +64,11 @@ const JobSchema = new mongoose.Schema(
       enum: ["pending", "in progress", "completed"],
       default: "pending",
     },
+
+    isPaid: { type: Boolean, default: false },
+    paidAt: { type: Date },
+    companyFee: { type: Number },
+    amountPaid: { type: Number },
   },
   { timestamps: true }
 );

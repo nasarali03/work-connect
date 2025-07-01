@@ -3,6 +3,7 @@ import Availability from "../models/Availability.js";
 import User from "../models/user.js";
 import Notification from "../models/notification.js";
 import Job from "../models/job.js";
+import ServiceFee from "../models/ServiceFee.js";
 
 // Set worker availability
 export const setAvailability = async (req, res) => {
@@ -126,12 +127,33 @@ export const createBooking = async (req, res) => {
     await booking.save();
 
     // Notify worker
+    const client = await User.findById(booking.clientId).lean();
+
     await Notification.create({
-      userId: workerId,
-      message: `New booking request for ${startDate.toLocaleDateString()}`,
-      type: "booking_request",
-      jobId,
-      data: { bookingId: booking._id },
+      userId: booking.workerId,
+      message: `New booking request from ${client.firstName} ${client.lastName}`,
+      type: "booking_created",
+      jobId: booking.jobId,
+      data: {
+        booking,
+        client: {
+          _id: client._id,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          email: client.email,
+          phoneNumber: client.phoneNumber,
+          profilePicture: client.profilePicture,
+          roles: client.roles,
+          location: client.location,
+          jobsPosted: client.jobsPosted,
+          jobsAccepted: client.jobsAccepted,
+          jobsCompleted: client.jobsCompleted,
+          active: client.active,
+          createdAt: client.createdAt,
+          updatedAt: client.updatedAt,
+          // Add more fields if needed
+        },
+      },
     });
 
     res.status(201).json({
@@ -250,12 +272,34 @@ export const updateBookingStatus = async (req, res) => {
       });
 
       // Notify client
+      const worker = await User.findById(booking.workerId).lean();
+
       await Notification.create({
         userId: booking.clientId,
-        message: `Worker has accepted your booking request`,
+        message: `Worker ${worker.firstName} ${worker.lastName} has accepted your booking request`,
         type: "booking_confirmed",
-        jobId: job._id,
-        data: { bookingId: booking._id },
+        jobId: booking.jobId,
+        data: {
+          booking,
+          worker: {
+            _id: worker._id,
+            firstName: worker.firstName,
+            lastName: worker.lastName,
+            email: worker.email,
+            phoneNumber: worker.phoneNumber,
+            profilePicture: worker.profilePicture,
+            roles: worker.roles,
+            location: worker.location,
+            jobsPosted: worker.jobsPosted,
+            jobsAccepted: worker.jobsAccepted,
+            jobsCompleted: worker.jobsCompleted,
+            active: worker.active,
+            createdAt: worker.createdAt,
+            updatedAt: worker.updatedAt,
+            workerDetails: worker.workerDetails,
+            // Add more fields if needed
+          },
+        },
       });
 
       return res.status(200).json({
@@ -346,6 +390,55 @@ export const updateBookingStatus = async (req, res) => {
       }
     }
 
+    // Handle booking rejection
+    if (status === "rejected") {
+      // Only worker can reject
+      if (booking.workerId.toString() !== userId) {
+        return res
+          .status(403)
+          .json({ message: "Only worker can reject the booking" });
+      }
+
+      booking.status = "rejected";
+      await booking.save();
+
+      const worker = await User.findById(booking.workerId).lean();
+
+      await Notification.create({
+        userId: booking.clientId,
+        message: `Worker ${worker.firstName} ${worker.lastName} has rejected your booking request`,
+        type: "booking_rejected",
+        jobId: booking.jobId,
+        data: {
+          booking,
+          worker: {
+            _id: worker._id,
+            firstName: worker.firstName,
+            lastName: worker.lastName,
+            email: worker.email,
+            phoneNumber: worker.phoneNumber,
+            profilePicture: worker.profilePicture,
+            roles: worker.roles,
+            location: worker.location,
+            jobsPosted: worker.jobsPosted,
+            jobsAccepted: worker.jobsAccepted,
+            jobsCompleted: worker.jobsCompleted,
+            active: worker.active,
+            createdAt: worker.createdAt,
+            updatedAt: worker.updatedAt,
+            workerDetails: worker.workerDetails,
+            // Add more fields if needed
+          },
+          reason: req.body.reason || "No reason provided",
+        },
+      });
+
+      return res.status(200).json({
+        message: "Booking rejected and client notified",
+        booking,
+      });
+    }
+
     // For other status updates (cancelled)
     booking.status = status;
     await booking.save();
@@ -370,5 +463,58 @@ export const updateBookingStatus = async (req, res) => {
   } catch (error) {
     console.error("Error updating booking status:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const markBookingAsPaid = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    if (booking.status !== "completed") {
+      return res.status(400).json({ message: "Booking is not completed yet" });
+    }
+
+    // Find the associated job
+    const job = await Job.findById(booking.jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Associated job not found" });
+    }
+    if (job.isPaid) {
+      return res.status(400).json({ message: "Job is already marked as paid" });
+    }
+
+    // Find the service fee record
+    const serviceFee = await ServiceFee.findOne({ jobId: job._id });
+    if (!serviceFee) {
+      return res.status(404).json({ message: "Service fee record not found" });
+    }
+
+    // Calculate company fee and amount paid to worker
+    const companyFee = serviceFee.serviceFeeAmount;
+    const amountPaid = serviceFee.jobAmount - companyFee;
+
+    // Update job
+    job.isPaid = true;
+    job.paidAt = new Date();
+    job.companyFee = companyFee;
+    job.amountPaid = amountPaid;
+    await job.save();
+
+    // Update service fee status
+    serviceFee.status = "paid";
+    serviceFee.paymentDate = new Date();
+    await serviceFee.save();
+
+    res.status(200).json({
+      message: "Booking and job marked as paid",
+      booking,
+      job,
+      serviceFee,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

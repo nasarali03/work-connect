@@ -759,3 +759,52 @@ export const getJobsByBudgetType = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const markAsPaid = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Only allow if job is completed and not already paid
+    if (job.status !== "completed") {
+      return res.status(400).json({ message: "Job is not completed yet" });
+    }
+    if (job.isPaid) {
+      return res.status(400).json({ message: "Job is already marked as paid" });
+    }
+
+    // Find the service fee record
+    const serviceFee = await ServiceFee.findOne({ jobId: job._id });
+    if (!serviceFee) {
+      return res.status(404).json({ message: "Service fee record not found" });
+    }
+
+    // Calculate company fee and amount paid to worker
+    const companyFee = serviceFee.serviceFeeAmount;
+    const amountPaid = serviceFee.jobAmount - companyFee;
+
+    // Update job
+    job.isPaid = true;
+    job.paidAt = new Date();
+    job.companyFee = companyFee;
+    job.amountPaid = amountPaid;
+    await job.save();
+
+    // Update service fee status
+    serviceFee.status = "paid";
+    serviceFee.paymentDate = new Date();
+    await serviceFee.save();
+
+    res.status(200).json({
+      message: "Job marked as paid",
+      job,
+      serviceFee,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

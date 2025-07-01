@@ -10,6 +10,7 @@ import {
   completeJob,
   getJobDetails,
   getJobsByBudgetType,
+  markAsPaid,
 } from "../controllers/jobController.js";
 
 const router = express.Router();
@@ -31,5 +32,7 @@ router.put("/complete/:jobId", authMiddleware, completeJob);
 router.get("/:jobId/details", authMiddleware, getJobDetails);
 
 router.get("/budget-type", authMiddleware, getJobsByBudgetType);
+
+router.put("/:jobId/mark-paid", authMiddleware, markAsPaid);
 
 export default router;

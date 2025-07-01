@@ -7,6 +7,7 @@ import {
   getWorkerBookings,
   getClientBookings,
   updateBookingStatus,
+  markBookingAsPaid,
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.post("/", authMiddleware, createBooking);
 router.get("/worker", authMiddleware, getWorkerBookings);
 router.get("/client", authMiddleware, getClientBookings);
 router.put("/:bookingId/status", authMiddleware, updateBookingStatus);
+router.put("/:bookingId/mark-paid", authMiddleware, markBookingAsPaid);
 
 export default router;
