@@ -81,8 +81,6 @@ export const createJob = async (req, res) => {
       status: "open",
       clientId: req.user.id,
       workerId: null,
-      clientVerification: false,
-      workerVerification: false,
       paymentStatus: "pending",
     });
 
@@ -225,40 +223,44 @@ export const requestJobAcceptance = async (req, res) => {
       await jobOffer.save();
 
       // Notify client about the offer with complete worker details
-      await Notification.create({
-        userId: job.clientId,
-        message: `Worker ${workerName} has made an offer of $${offerAmount} for your job: ${job.title}`,
-        type: "job_offer",
-        jobId: job._id,
-        data: {
-          offerId: jobOffer._id,
-          offerAmount: offerAmount,
-          workerId: req.user.id,
-          worker: {
-            firstName: worker.firstName,
-            lastName: worker.lastName,
-            email: worker.email,
-            phoneNumber: worker.phoneNumber,
-            profilePicture:
-              worker.profilePicture ||
-              (worker.workerDetails && worker.workerDetails.profilePicture),
-            skills: worker.workerDetails?.skills || [],
-            experience: worker.workerDetails?.experience,
-            profession: worker.workerDetails?.profession,
-            rating:
-              worker.workerDetails?.feedback?.length > 0
-                ? worker.workerDetails.feedback.reduce(
-                    (acc, curr) => acc + curr.rating,
-                    0
-                  ) / worker.workerDetails.feedback.length
-                : 0,
-            jobsCompleted: worker.jobsCompleted,
-            jobsAccepted: worker.jobsAccepted,
-            verificationStatus: worker.workerDetails?.verificationStatus,
-            about: worker.workerDetails?.about,
+      try {
+        await Notification.create({
+          userId: job.clientId,
+          message: `Worker ${workerName} has made an offer of $${offerAmount} for your job: ${job.title}`,
+          type: "job_offer",
+          jobId: job._id,
+          data: {
+            offerId: jobOffer._id,
+            offerAmount: offerAmount,
+            workerId: req.user.id,
+            worker: {
+              firstName: worker.firstName,
+              lastName: worker.lastName,
+              email: worker.email,
+              phoneNumber: worker.phoneNumber,
+              profilePicture:
+                worker.profilePicture ||
+                (worker.workerDetails && worker.workerDetails.profilePicture),
+              skills: worker.workerDetails?.skills || [],
+              experience: worker.workerDetails?.experience,
+              profession: worker.workerDetails?.profession,
+              rating:
+                worker.workerDetails?.feedback?.length > 0
+                  ? worker.workerDetails.feedback.reduce(
+                      (acc, curr) => acc + curr.rating,
+                      0
+                    ) / worker.workerDetails.feedback.length
+                  : 0,
+              jobsCompleted: worker.jobsCompleted,
+              jobsAccepted: worker.jobsAccepted,
+              verificationStatus: worker.workerDetails?.verificationStatus,
+              about: worker.workerDetails?.about,
+            },
           },
-        },
-      });
+        });
+      } catch (notifyErr) {
+        console.error("Notification error:", notifyErr);
+      }
 
       console.log("Incrementing jobsAccepted for worker:", jobOffer.workerId);
       const resultAccepted = await User.findByIdAndUpdate(
@@ -293,48 +295,58 @@ export const requestJobAcceptance = async (req, res) => {
       job.workerId = req.user.id;
       await job.save();
 
+      // Fetch the updated job for response (with population)
+      const updatedJob = await Job.findById(job._id)
+        .populate("clientId")
+        .populate("workerId")
+        .lean();
+
       // Notify client with complete worker details
-      await Notification.create({
-        userId: job.clientId,
-        message: `Worker ${workerName} wants to accept your job: ${job.title} for the fixed budget of $${job.budget}`,
-        type: "job_request",
-        jobId: job._id,
-        data: {
-          offerId: jobOffer._id,
-          workerId: req.user.id,
-          offerAmount: job.budget,
-          worker: {
-            firstName: worker.firstName,
-            lastName: worker.lastName,
-            email: worker.email,
-            phoneNumber: worker.phoneNumber,
-            profilePicture:
-              worker.profilePicture ||
-              (worker.workerDetails && worker.workerDetails.profilePicture),
-            skills: worker.workerDetails?.skills || [],
-            experience: worker.workerDetails?.experience,
-            profession: worker.workerDetails?.profession,
-            rating:
-              worker.workerDetails?.feedback?.length > 0
-                ? worker.workerDetails.feedback.reduce(
-                    (acc, curr) => acc + curr.rating,
-                    0
-                  ) / worker.workerDetails.feedback.length
-                : 0,
-            jobsCompleted: worker.jobsCompleted,
-            jobsAccepted: worker.jobsAccepted,
-            verificationStatus: worker.workerDetails?.verificationStatus,
-            about: worker.workerDetails?.about,
+      try {
+        await Notification.create({
+          userId: job.clientId,
+          message: `Worker ${workerName} wants to accept your job: ${job.title} for the fixed budget of $${job.budget}`,
+          type: "job_request",
+          jobId: job._id,
+          data: {
+            offerId: jobOffer._id,
+            workerId: req.user.id,
+            offerAmount: job.budget,
+            worker: {
+              firstName: worker.firstName,
+              lastName: worker.lastName,
+              email: worker.email,
+              phoneNumber: worker.phoneNumber,
+              profilePicture:
+                worker.profilePicture ||
+                (worker.workerDetails && worker.workerDetails.profilePicture),
+              skills: worker.workerDetails?.skills || [],
+              experience: worker.workerDetails?.experience,
+              profession: worker.workerDetails?.profession,
+              rating:
+                worker.workerDetails?.feedback?.length > 0
+                  ? worker.workerDetails.feedback.reduce(
+                      (acc, curr) => acc + curr.rating,
+                      0
+                    ) / worker.workerDetails.feedback.length
+                  : 0,
+              jobsCompleted: worker.jobsCompleted,
+              jobsAccepted: worker.jobsAccepted,
+              verificationStatus: worker.workerDetails?.verificationStatus,
+              about: worker.workerDetails?.about,
+            },
           },
-        },
-      });
+        });
+      } catch (notifyErr) {
+        console.error("Notification error:", notifyErr);
+      }
 
       // Increment jobsAccepted for the worker
       await User.findByIdAndUpdate(req.user.id, { $inc: { jobsAccepted: 1 } });
 
       return res.status(200).json({
         message: "Job request sent to client for approval",
-        job,
+        job: updatedJob,
         offer: jobOffer,
       });
     }
@@ -368,7 +380,7 @@ export const acceptJobOffer = async (req, res) => {
         .json({ message: "Unauthorized to accept this offer" });
     }
 
-    if (job.status !== "open") {
+    if (job.status !== "pending_approval") {
       return res.status(400).json({ message: "Job is no longer available" });
     }
 
@@ -377,6 +389,12 @@ export const acceptJobOffer = async (req, res) => {
     job.workerId = jobOffer.workerId;
     job.budget = jobOffer.offerAmount;
     await job.save();
+
+    // Fetch the updated job for response (with population)
+    const updatedJob = await Job.findById(job._id)
+      .populate("clientId")
+      .populate("workerId")
+      .lean();
 
     // Update offer status
     jobOffer.status = "accepted";
@@ -389,7 +407,9 @@ export const acceptJobOffer = async (req, res) => {
       )
       .lean();
 
-    const clientName = `${client.firstName} ${client.lastName}`.trim();
+    const clientName = client
+      ? `${client.firstName} ${client.lastName}`.trim()
+      : "Client";
 
     // Calculate service fee (10% of offer amount)
     const serviceFeePercentage = 10; // This could be configurable
@@ -409,29 +429,35 @@ export const acceptJobOffer = async (req, res) => {
     await serviceFee.save();
 
     // Notify worker about acceptance
-    await Notification.create({
-      userId: jobOffer.workerId,
-      message: `Your offer for the job "${job.title}" has been accepted by ${clientName}.`,
-      type: "offer_accepted",
-      jobId: job._id,
-      data: {
-        offerId: jobOffer._id,
-        clientId: job.clientId,
-        client: {
-          firstName: client.firstName,
-          lastName: client.lastName,
-          email: client.email,
-          phoneNumber: client.phoneNumber,
-          profilePicture: client.profilePicture,
-          location: client.location,
-          jobsPosted: client.jobsPosted,
+    try {
+      await Notification.create({
+        userId: jobOffer.workerId,
+        message: `Your offer for the job "${job.title}" has been accepted by ${clientName}.`,
+        type: "offer_accepted",
+        jobId: job._id,
+        data: {
+          offerId: jobOffer._id,
+          clientId: job.clientId,
+          client: client
+            ? {
+                firstName: client.firstName,
+                lastName: client.lastName,
+                email: client.email,
+                phoneNumber: client.phoneNumber,
+                profilePicture: client.profilePicture,
+                location: client.location,
+                jobsPosted: client.jobsPosted,
+              }
+            : null,
         },
-      },
-    });
+      });
+    } catch (notifyErr) {
+      console.error("Notification error:", notifyErr);
+    }
 
     res.status(200).json({
       message: "Job offer accepted successfully",
-      job,
+      job: updatedJob,
       offer: jobOffer,
       serviceFee,
     });
@@ -472,28 +498,35 @@ export const rejectJobOffer = async (req, res) => {
         .json({ message: "Unauthorized to reject this offer" });
     }
 
-    if (job.status !== "open") {
+    if (job.status !== "pending_approval") {
       return res.status(400).json({ message: "Job is no longer available" });
     }
 
     // Update offer status
-    jobOffer.status = "rejected";
-    await jobOffer.save();
+    job.status = "open";
+    job.workerId = null;
+    await job.save();
+
+    await JobOffer.findByIdAndDelete(offerId);
 
     // Notify worker about rejection
-    await Notification.create({
-      userId: jobOffer.workerId,
-      message: `Your offer for the job "${job.title}" has been rejected by the client.`,
-      type: "offer_rejected",
-      jobId: job._id,
-      data: {
-        offerId: jobOffer._id,
-        clientId: job.clientId,
-      },
-    });
+    try {
+      await Notification.create({
+        userId: jobOffer.workerId,
+        message: `Your offer for the job "${job.title}" has been rejected by the client.`,
+        type: "offer_rejected",
+        jobId: job._id,
+        data: {
+          offerId: jobOffer._id,
+          clientId: job.clientId,
+        },
+      });
+    } catch (notifyErr) {
+      console.error("Notification error:", notifyErr);
+    }
 
     res.status(200).json({
-      message: "Job offer rejected successfully",
+      message: "Job offer rejected and job is open again",
       offer: jobOffer,
     });
   } catch (error) {
@@ -660,10 +693,6 @@ export const getJobDetails = async (req, res) => {
             active: job.workerId.active,
           }
         : null,
-      verifications: {
-        clientVerified: job.clientVerification,
-        workerVerified: job.workerVerification,
-      },
       paymentStatus: job.paymentStatus,
     };
 
@@ -795,9 +824,9 @@ export const getAssignedJobsForWorker = async (req, res) => {
       description: job.description,
       category: job.category,
       openToOffer: job.openToOffer,
-      // budget: job.budget, // Will be set after offer is accepted
-      // rightNow: job.rightNow,
-      // scheduledDateTime: job.scheduledDateTime,
+      budget: job.budget, // Will be set after offer is accepted
+      rightNow: job.rightNow,
+      scheduledDateTime: job.scheduledDateTime,
       location: job.location,
       skillsRequired: job.skillsRequired,
       status: job.status,
@@ -816,10 +845,6 @@ export const getAssignedJobsForWorker = async (req, res) => {
             active: job.clientId.active,
           }
         : null,
-      verifications: {
-        clientVerified: job.clientVerification,
-        workerVerified: job.workerVerification,
-      },
       paymentStatus: job.paymentStatus,
     }));
 
@@ -846,9 +871,9 @@ export const getAssignedJobsForClient = async (req, res) => {
       description: job.description,
       category: job.category,
       openToOffer: job.openToOffer,
-      // budget: job.budget, // Will be set after offer is accepted
-      // rightNow: job.rightNow,
-      // scheduledDateTime: job.scheduledDateTime,
+      budget: job.budget, // Will be set after offer is accepted
+      rightNow: job.rightNow,
+      scheduledDateTime: job.scheduledDateTime,
       location: job.location,
       skillsRequired: job.skillsRequired,
       status: job.status,
@@ -872,10 +897,6 @@ export const getAssignedJobsForClient = async (req, res) => {
             active: job.workerId.active,
           }
         : null,
-      verifications: {
-        clientVerified: job.clientVerification,
-        workerVerified: job.workerVerification,
-      },
       paymentStatus: job.paymentStatus,
     }));
 

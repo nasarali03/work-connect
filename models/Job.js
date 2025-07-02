@@ -49,16 +49,6 @@ const JobSchema = new mongoose.Schema(
       default: null, // Will be assigned when a worker accepts the job
     },
 
-    clientVerification: {
-      type: Boolean,
-      default: false, // Client verifies when work is done
-    },
-
-    workerVerification: {
-      type: Boolean,
-      default: false, // Worker verifies when they complete work
-    },
-
     paymentStatus: {
       type: String,
       enum: ["pending", "in progress", "completed"],
