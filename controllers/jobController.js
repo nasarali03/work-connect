@@ -372,6 +372,16 @@ export const acceptJobOffer = async (req, res) => {
       return res.status(400).json({ message: "Job is no longer available" });
     }
 
+    // Set the job's budget to the accepted offer amount
+    job.status = "in progress";
+    job.workerId = jobOffer.workerId;
+    job.budget = jobOffer.offerAmount;
+    await job.save();
+
+    // Update offer status
+    jobOffer.status = "accepted";
+    await jobOffer.save();
+
     // Get client's complete details
     const client = await User.findById(req.user.id)
       .select(
@@ -385,25 +395,6 @@ export const acceptJobOffer = async (req, res) => {
     const serviceFeePercentage = 10; // This could be configurable
     const serviceFeeAmount =
       (jobOffer.offerAmount * serviceFeePercentage) / 100;
-
-    // Update job with worker and offer amount
-    job.status = "in progress";
-    job.workerId = jobOffer.workerId;
-    job.budget = jobOffer.offerAmount; // Set the budget to the accepted offer amount
-    await job.save();
-
-    // Increment jobsAccepted for the worker
-    console.log("Incrementing jobsAccepted for worker:", jobOffer.workerId);
-    const resultAccepted = await User.findByIdAndUpdate(
-      jobOffer.workerId,
-      { $inc: { jobsAccepted: 1 } },
-      { new: true }
-    );
-    console.log("Updated worker after jobsAccepted increment:", resultAccepted);
-
-    // Update offer status
-    jobOffer.status = "accepted";
-    await jobOffer.save();
 
     // Create service fee record
     const serviceFee = new ServiceFee({
