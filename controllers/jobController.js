@@ -794,7 +794,7 @@ export const getAssignedJobsForWorker = async (req, res) => {
       title: job.title,
       description: job.description,
       category: job.category,
-      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      openToOffer: job.openToOffer,
       budget: job.budget, // Will be set after offer is accepted
       rightNow: job.rightNow,
       scheduledDateTime: job.scheduledDateTime,
@@ -845,7 +845,7 @@ export const getAssignedJobsForClient = async (req, res) => {
       title: job.title,
       description: job.description,
       category: job.category,
-      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      openToOffer: job.openToOffer,
       budget: job.budget, // Will be set after offer is accepted
       rightNow: job.rightNow,
       scheduledDateTime: job.scheduledDateTime,
