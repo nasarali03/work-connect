@@ -339,6 +339,7 @@ export const acceptJobOffer = async (req, res) => {
         .json({ message: "Only clients can accept job offers" });
     }
 
+    // Get offerId from route params
     const { offerId } = req.params;
     const jobOffer = await JobOffer.findById(offerId);
 
@@ -398,32 +399,20 @@ export const acceptJobOffer = async (req, res) => {
       workerId: jobOffer.workerId,
       clientId: job.clientId,
       jobAmount: jobOffer.offerAmount,
-      serviceFeePercentage: serviceFeePercentage,
-      serviceFeeAmount: serviceFeeAmount,
+      serviceFee: serviceFeeAmount,
       status: "pending",
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days after job completion
     });
-
     await serviceFee.save();
 
-    // Get worker's name from user model
-    const worker = await User.findById(jobOffer.workerId);
-    const workerName = `${worker.firstName} ${worker.lastName}`.trim();
-
-    // Notify worker with complete client details
+    // Notify worker about acceptance
     await Notification.create({
       userId: jobOffer.workerId,
-      message: `Your offer of $${jobOffer.offerAmount} has been accepted for the job: ${job.title}. Service fee of $${serviceFeeAmount} will be due after job completion.`,
+      message: `Your offer for the job "${job.title}" has been accepted by ${clientName}.`,
       type: "offer_accepted",
       jobId: job._id,
       data: {
         offerId: jobOffer._id,
-        workerId: jobOffer.workerId,
-        serviceFee: {
-          amount: serviceFeeAmount,
-          percentage: serviceFeePercentage,
-          dueDate: serviceFee.dueDate,
-        },
+        clientId: job.clientId,
         client: {
           fullName: clientName,
           email: client.email,
@@ -431,32 +420,15 @@ export const acceptJobOffer = async (req, res) => {
           profilePicture: client.profilePicture,
           location: client.location,
           jobsPosted: client.jobsPosted,
-          // Add any additional client details that might be relevant
-          address: client.location?.address,
-          latitude: client.location?.latitude,
-          longitude: client.location?.longitude,
-        },
-        job: {
-          title: job.title,
-          description: job.description,
-          category: job.category,
-          location: job.location,
-          skillsRequired: job.skillsRequired,
-          scheduledDateTime: job.scheduledDateTime,
-          rightNow: job.rightNow,
         },
       },
     });
 
     res.status(200).json({
-      message: "Job offer accepted",
+      message: "Job offer accepted successfully",
       job,
       offer: jobOffer,
-      serviceFee: {
-        amount: serviceFeeAmount,
-        percentage: serviceFeePercentage,
-        dueDate: serviceFee.dueDate,
-      },
+      serviceFee,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -472,114 +444,46 @@ export const rejectJobOffer = async (req, res) => {
         .json({ message: "Only clients can reject job offers" });
     }
 
-    const { offerId } = req.params;
-    const { rejectionReason } = req.body; // Optional reason for rejection
-
-    // Find the job offer
+    // Get both jobId and offerId from route params
+    const { jobId, offerId } = req.params;
     const jobOffer = await JobOffer.findById(offerId);
+
     if (!jobOffer) {
       return res.status(404).json({ message: "Job offer not found" });
     }
 
+    // Optional: Extra validation to ensure the offer belongs to the job
+    if (jobOffer.jobId.toString() !== jobId) {
+      return res
+        .status(400)
+        .json({ message: "Offer does not belong to this job" });
+    }
+
     // Verify the client owns the job
-    const job = await Job.findById(jobOffer.jobId);
+    const job = await Job.findById(jobId);
     if (!job || job.clientId.toString() !== req.user.id) {
       return res
         .status(403)
         .json({ message: "Unauthorized to reject this offer" });
     }
 
-    if (jobOffer.status !== "pending") {
-      return res
-        .status(400)
-        .json({ message: "This offer is no longer pending" });
+    if (job.status !== "open") {
+      return res.status(400).json({ message: "Job is no longer available" });
     }
-
-    // Get client's complete details
-    const client = await User.findById(req.user.id)
-      .select(
-        "firstName lastName email phoneNumber profilePicture location jobsPosted"
-      )
-      .lean();
-
-    const clientName = `${client.firstName} ${client.lastName}`.trim();
 
     // Update offer status
     jobOffer.status = "rejected";
-    if (rejectionReason) {
-      jobOffer.rejectionReason = rejectionReason;
-    }
     await jobOffer.save();
 
-    // Get worker's name from user model
-    const worker = await User.findById(jobOffer.workerId);
-    const workerName = `${worker.firstName} ${worker.lastName}`.trim();
-
-    // Notify worker about the rejection with complete client details
+    // Notify worker about rejection
     await Notification.create({
       userId: jobOffer.workerId,
-      message: `Your offer of $${jobOffer.offerAmount} for the job "${
-        job.title
-      }" has been rejected${rejectionReason ? `: ${rejectionReason}` : ""}`,
+      message: `Your offer for the job "${job.title}" has been rejected by the client.`,
       type: "offer_rejected",
       jobId: job._id,
       data: {
         offerId: jobOffer._id,
-        rejectionReason: rejectionReason || null,
-        workerId: jobOffer.workerId,
-        client: {
-          fullName: clientName,
-          email: client.email,
-          phoneNumber: client.phoneNumber,
-          profilePicture: client.profilePicture,
-          location: client.location,
-          jobsPosted: client.jobsPosted,
-          address: client.location?.address,
-          latitude: client.location?.latitude,
-          longitude: client.location?.longitude,
-        },
-        job: {
-          title: job.title,
-          description: job.description,
-          category: job.category,
-          location: job.location,
-          skillsRequired: job.skillsRequired,
-          scheduledDateTime: job.scheduledDateTime,
-          rightNow: job.rightNow,
-        },
-      },
-    });
-
-    // Also notify the client (for their records)
-    await Notification.create({
-      userId: req.user.id,
-      message: `You have rejected ${workerName}'s offer of $${jobOffer.offerAmount} for the job "${job.title}"`,
-      type: "offer_rejected",
-      jobId: job._id,
-      data: {
-        offerId: jobOffer._id,
-        rejectionReason: rejectionReason || null,
-        workerId: jobOffer.workerId,
-        client: {
-          fullName: clientName,
-          email: client.email,
-          phoneNumber: client.phoneNumber,
-          profilePicture: client.profilePicture,
-          location: client.location,
-          jobsPosted: client.jobsPosted,
-          address: client.location?.address,
-          latitude: client.location?.latitude,
-          longitude: client.location?.longitude,
-        },
-        job: {
-          title: job.title,
-          description: job.description,
-          category: job.category,
-          location: job.location,
-          skillsRequired: job.skillsRequired,
-          scheduledDateTime: job.scheduledDateTime,
-          rightNow: job.rightNow,
-        },
+        clientId: job.clientId,
       },
     });
 
@@ -588,7 +492,6 @@ export const rejectJobOffer = async (req, res) => {
       offer: jobOffer,
     });
   } catch (error) {
-    console.error("Error rejecting job offer:", error);
     res.status(500).json({ error: error.message });
   }
 };
