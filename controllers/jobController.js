@@ -136,10 +136,8 @@ export const getOpenJobs = async (req, res) => {
     }
 
     const jobs = await Job.find(filter)
-      .populate(
-        "clientId",
-        "firstName lastName phoneNumber profilePicture email"
-      )
+      .populate("clientId")
+      .populate("workerId")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -609,7 +607,7 @@ export const getJobOffers = async (req, res) => {
     }
 
     const offers = await JobOffer.find({ jobId })
-      .populate("workerId", "firstName lastName email")
+      .populate("workerId")
       .sort({ createdAt: -1 });
 
     res.status(200).json(offers);
@@ -700,8 +698,8 @@ export const getJobDetails = async (req, res) => {
 
     // Fetch job details and populate client & worker info
     const job = await Job.findById(jobId)
-      .populate("clientId", "name email role")
-      .populate("workerId", "name email role")
+      .populate("clientId")
+      .populate("workerId")
       .lean();
 
     if (!job) {
@@ -850,6 +848,53 @@ export const getClientJobs = async (req, res) => {
   try {
     const clientId = req.user.id;
     const jobs = await Job.find({ clientId }).sort({ createdAt: -1 });
+    res.status(200).json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAssignedJobsForWorker = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const jobs = await Job.find({ workerId, status: "in progress" })
+      .populate("clientId")
+      .populate("workerId")
+      .sort({ createdAt: -1 });
+    res.status(200).json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAssignedJobsForClient = async (req, res) => {
+  try {
+    const clientId = req.user.id;
+    const jobs = await Job.find({
+      clientId,
+      workerId: { $ne: null },
+      status: "in progress",
+    })
+      .populate("workerId")
+      .sort({ createdAt: -1 });
+    res.status(200).json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCompletedJobs = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Find jobs where the user is either the client or the worker and status is completed
+    const jobs = await Job.find({
+      status: "completed",
+      $or: [{ clientId: userId }, { workerId: userId }],
+    })
+      .populate("clientId")
+      .populate("workerId")
+      .sort({ updatedAt: -1 });
+
     res.status(200).json(jobs);
   } catch (error) {
     res.status(500).json({ error: error.message });

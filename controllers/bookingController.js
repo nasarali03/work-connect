@@ -532,3 +532,31 @@ export const markBookingAsPaid = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getBookingsForWorker = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const bookings = await Booking.find({ workerId })
+      .populate("clientId")
+      .populate("workerId")
+      .populate("jobId")
+      .sort({ startTime: -1 });
+    res.status(200).json(bookings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getBookingsForClient = async (req, res) => {
+  try {
+    const clientId = req.user.id;
+    const bookings = await Booking.find({ clientId })
+      .populate("workerId")
+      .populate("clientId")
+      .populate("jobId")
+      .sort({ startTime: -1 });
+    res.status(200).json(bookings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
