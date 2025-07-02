@@ -222,6 +222,11 @@ export const requestJobAcceptance = async (req, res) => {
 
       await jobOffer.save();
 
+      // Set job status to "pending_approval" and assign workerId
+      job.status = "pending_approval";
+      job.workerId = req.user.id;
+      await job.save();
+
       // Notify client about the offer with complete worker details
       try {
         await Notification.create({
@@ -276,6 +281,7 @@ export const requestJobAcceptance = async (req, res) => {
       return res.status(200).json({
         message: "Job offer sent to client for review",
         offer: jobOffer,
+        job: updatedJob,
       });
     } else {
       // For fixed budget jobs, create a job offer with the fixed budget amount
