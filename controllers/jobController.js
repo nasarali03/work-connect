@@ -56,12 +56,19 @@ export const createJob = async (req, res) => {
       }
     }
 
+    // If openToOffer is false, budget is required
+    if (!openToOffer && (budget === undefined || budget === null)) {
+      return res
+        .status(400)
+        .json({ message: "Budget is required for fixed budget jobs" });
+    }
+
     // Create a new job
     const newJob = new Job({
       title,
       description,
       category,
-      budget,
+      budget: openToOffer ? null : budget,
       location: {
         latitude: location.latitude,
         longitude: location.longitude,
@@ -797,7 +804,7 @@ export const getAssignedJobsForWorker = async (req, res) => {
       description: job.description,
       category: job.category,
       budgetType: job.openToOffer ? "open_to_offer" : "fixed",
-      budget: job.budget,
+      budget: job.budget, // Will be set after offer is accepted
       rightNow: job.rightNow,
       scheduledDateTime: job.scheduledDateTime,
       location: job.location,
@@ -842,14 +849,13 @@ export const getAssignedJobsForClient = async (req, res) => {
       .populate("workerId")
       .sort({ createdAt: -1 });
 
-    // Transform jobs to always include budget info and type
     const transformedJobs = jobs.map((job) => ({
       jobId: job._id,
       title: job.title,
       description: job.description,
       category: job.category,
       budgetType: job.openToOffer ? "open_to_offer" : "fixed",
-      budget: job.budget, // Should be set when job is in progress
+      budget: job.budget, // Will be set after offer is accepted
       rightNow: job.rightNow,
       scheduledDateTime: job.scheduledDateTime,
       location: job.location,
