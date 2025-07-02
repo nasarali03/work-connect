@@ -780,7 +780,15 @@ export const getAssignedJobsForClient = async (req, res) => {
     })
       .populate("workerId")
       .sort({ createdAt: -1 });
-    res.status(200).json(jobs);
+
+    // Transform jobs to always include budget info
+    const transformedJobs = jobs.map((job) => ({
+      ...job.toObject(),
+      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      budget: job.budget, // This will be set if an offer was accepted
+    }));
+
+    res.status(200).json(transformedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
