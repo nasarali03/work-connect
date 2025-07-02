@@ -16,6 +16,7 @@ import {
   getAssignedJobsForClient,
   getCompletedJobs,
   addWorkerReview,
+  acceptFixedBudgetJobOffer,
 } from "../controllers/jobController.js";
 
 const router = express.Router();
@@ -28,10 +29,12 @@ router.post("/:jobId/request-acceptance", authMiddleware, requestJobAcceptance);
 
 router.get("/:jobId/offers", authMiddleware, getJobOffers);
 
+router.post("/accept-offer/:offerId", authMiddleware, acceptJobOffer);
+
 router.post(
-  "/offer/:offerId/approve-acceptance",
+  "/:jobId/accept-fixed-offer",
   authMiddleware,
-  acceptJobOffer
+  acceptFixedBudgetJobOffer
 );
 
 router.post("/:jobId/reject-offer/:offerId", authMiddleware, rejectJobOffer);

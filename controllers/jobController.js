@@ -358,6 +358,10 @@ export const requestJobAcceptance = async (req, res) => {
 // Client accepts a job offer
 export const acceptJobOffer = async (req, res) => {
   try {
+    const { offerId } = req.params;
+    if (!offerId) {
+      return res.status(400).json({ error: "Missing offerId parameter" });
+    }
     if (!req.user.role.includes("client")) {
       return res
         .status(403)
@@ -365,7 +369,6 @@ export const acceptJobOffer = async (req, res) => {
     }
 
     // Get offerId from route params
-    const { offerId } = req.params;
     const jobOffer = await JobOffer.findById(offerId);
 
     if (!jobOffer) {
@@ -964,6 +967,122 @@ export const addWorkerReview = async (req, res) => {
     await worker.save();
 
     res.status(201).json({ message: "Review added successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const acceptFixedBudgetJobOffer = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    if (!jobId) {
+      return res.status(400).json({ error: "Missing jobId parameter" });
+    }
+    if (!req.user.role.includes("client")) {
+      return res
+        .status(403)
+        .json({ message: "Only clients can accept job offers" });
+    }
+
+    // Find the job
+    const job = await Job.findById(jobId);
+    if (!job || job.clientId.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to accept this offer" });
+    }
+
+    if (job.status !== "pending_approval" || !job.workerId) {
+      return res.status(400).json({ message: "Job is not pending approval" });
+    }
+
+    // Find the pending offer for this job and worker
+    const jobOffer = await JobOffer.findOne({
+      jobId: job._id,
+      workerId: job.workerId,
+      status: "pending",
+    });
+
+    if (!jobOffer) {
+      return res.status(404).json({ message: "Job offer not found" });
+    }
+
+    // Set the job's budget to the accepted offer amount and update status
+    job.status = "in progress";
+    job.budget = jobOffer.offerAmount;
+    await job.save();
+
+    // Fetch the updated job for response (with population)
+    const updatedJob = await Job.findById(job._id)
+      .populate("clientId")
+      .populate("workerId")
+      .lean();
+
+    // Update offer status
+    jobOffer.status = "accepted";
+    await jobOffer.save();
+
+    // Get client's complete details
+    const client = await User.findById(req.user.id)
+      .select(
+        "firstName lastName email phoneNumber profilePicture location jobsPosted"
+      )
+      .lean();
+
+    const clientName = client
+      ? `${client.firstName} ${client.lastName}`.trim()
+      : "Client";
+
+    // Calculate service fee (10% of offer amount)
+    const serviceFeePercentage = 10; // This could be configurable
+    const serviceFeeAmount =
+      (jobOffer.offerAmount * serviceFeePercentage) / 100;
+
+    // Create service fee record
+    const serviceFee = new ServiceFee({
+      jobId: job._id,
+      jobOfferId: jobOffer._id,
+      workerId: jobOffer.workerId,
+      clientId: job.clientId,
+      jobAmount: jobOffer.offerAmount,
+      serviceFee: serviceFeeAmount,
+      status: "pending",
+    });
+    await serviceFee.save();
+
+    // Notify worker about acceptance
+    try {
+      await Notification.create({
+        userId: jobOffer.workerId,
+        message: `Your request for the job "${job.title}" has been accepted by ${clientName}.`,
+        type: "offer_accepted",
+        jobId: job._id,
+        data: {
+          offerId: jobOffer._id,
+          clientId: job.clientId,
+          client: client
+            ? {
+                firstName: client.firstName,
+                lastName: client.lastName,
+                email: client.email,
+                phoneNumber: client.phoneNumber,
+                profilePicture: client.profilePicture,
+                location: client.location,
+                jobsPosted: client.jobsPosted,
+              }
+            : null,
+        },
+      });
+    } catch (notifyErr) {
+      console.error("Notification error:", notifyErr);
+    }
+
+    res.status(200).json({
+      message: "Job offer accepted successfully",
+      job: updatedJob,
+      offer: jobOffer,
+      serviceFee,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
