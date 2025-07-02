@@ -760,11 +760,43 @@ export const getClientJobs = async (req, res) => {
 export const getAssignedJobsForWorker = async (req, res) => {
   try {
     const workerId = req.user.id;
-    const jobs = await Job.find({ workerId, status: "in progress" })
+    const jobs = await Job.find({
+      workerId,
+      status: "in progress",
+    })
       .populate("clientId")
-      .populate("workerId")
       .sort({ createdAt: -1 });
-    res.status(200).json(jobs);
+
+    // Transform jobs to always include budget info and type
+    const transformedJobs = jobs.map((job) => ({
+      jobId: job._id,
+      title: job.title,
+      description: job.description,
+      category: job.category,
+      budgetType: job.openToOffer ? "open_to_offer" : "fixed",
+      budget: job.budget, // Should be set when job is in progress
+      rightNow: job.rightNow,
+      scheduledDateTime: job.scheduledDateTime,
+      location: job.location,
+      skillsRequired: job.skillsRequired,
+      status: job.status,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      client: job.clientId
+        ? {
+            name: job.clientId.name,
+            email: job.clientId.email,
+            role: job.clientId.role,
+          }
+        : null,
+      verifications: {
+        clientVerified: job.clientVerification,
+        workerVerified: job.workerVerification,
+      },
+      paymentStatus: job.paymentStatus,
+    }));
+
+    res.status(200).json(transformedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -781,11 +813,33 @@ export const getAssignedJobsForClient = async (req, res) => {
       .populate("workerId")
       .sort({ createdAt: -1 });
 
-    // Transform jobs to always include budget info
+    // Transform jobs to always include budget info and type
     const transformedJobs = jobs.map((job) => ({
-      ...job.toObject(),
+      jobId: job._id,
+      title: job.title,
+      description: job.description,
+      category: job.category,
       budgetType: job.openToOffer ? "open_to_offer" : "fixed",
-      budget: job.budget, // This will be set if an offer was accepted
+      budget: job.budget, // Should be set when job is in progress
+      rightNow: job.rightNow,
+      scheduledDateTime: job.scheduledDateTime,
+      location: job.location,
+      skillsRequired: job.skillsRequired,
+      status: job.status,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      worker: job.workerId
+        ? {
+            name: job.workerId.name,
+            email: job.workerId.email,
+            role: job.workerId.role,
+          }
+        : null,
+      verifications: {
+        clientVerified: job.clientVerification,
+        workerVerified: job.workerVerification,
+      },
+      paymentStatus: job.paymentStatus,
     }));
 
     res.status(200).json(transformedJobs);
