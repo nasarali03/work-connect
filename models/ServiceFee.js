@@ -37,7 +37,7 @@ const ServiceFeeSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "paid", "overdue"],
+      enum: ["pending", "paid", "overdue", "accepted", "rejected"],
       default: "pending",
     },
     dueDate: {
