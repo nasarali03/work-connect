@@ -177,9 +177,9 @@ export const requestJobAcceptance = async (req, res) => {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: "Job not found" });
 
-    if (job.status !== "open") {
-      return res.status(400).json({ message: "Job is no longer available" });
-    }
+    // if (job.status !== "open") {
+    //   return res.status(400).json({ message: "Job is no longer available" });
+    // }
 
     // Check if the worker already has a job in progress
     const existingJob = await Job.findOne({
