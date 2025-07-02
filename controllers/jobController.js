@@ -228,10 +228,13 @@ export const requestJobAcceptance = async (req, res) => {
           offerAmount: offerAmount,
           workerId: req.user.id,
           worker: {
-            fullName: workerName,
+            firstName: worker.firstName,
+            lastName: worker.lastName,
             email: worker.email,
             phoneNumber: worker.phoneNumber,
-            profilePicture: worker.profilePicture,
+            profilePicture:
+              worker.profilePicture ||
+              (worker.workerDetails && worker.workerDetails.profilePicture),
             skills: worker.workerDetails?.skills || [],
             experience: worker.workerDetails?.experience,
             profession: worker.workerDetails?.profession,
@@ -294,10 +297,13 @@ export const requestJobAcceptance = async (req, res) => {
           workerId: req.user.id,
           offerAmount: job.budget,
           worker: {
-            fullName: workerName,
+            firstName: worker.firstName,
+            lastName: worker.lastName,
             email: worker.email,
             phoneNumber: worker.phoneNumber,
-            profilePicture: worker.profilePicture,
+            profilePicture:
+              worker.profilePicture ||
+              (worker.workerDetails && worker.workerDetails.profilePicture),
             skills: worker.workerDetails?.skills || [],
             experience: worker.workerDetails?.experience,
             profession: worker.workerDetails?.profession,
@@ -414,7 +420,8 @@ export const acceptJobOffer = async (req, res) => {
         offerId: jobOffer._id,
         clientId: job.clientId,
         client: {
-          fullName: clientName,
+          firstName: client.firstName,
+          lastName: client.lastName,
           email: client.email,
           phoneNumber: client.phoneNumber,
           profilePicture: client.profilePicture,
@@ -626,16 +633,33 @@ export const getJobDetails = async (req, res) => {
       updatedAt: job.updatedAt,
       client: job.clientId
         ? {
-            name: job.clientId.name,
+            firstName: job.clientId.firstName,
+            lastName: job.clientId.lastName,
             email: job.clientId.email,
-            role: job.clientId.role,
+            phoneNumber: job.clientId.phoneNumber,
+            profilePicture: job.clientId.profilePicture,
+            roles: job.clientId.roles,
+            location: job.clientId.location,
+            jobsPosted: job.clientId.jobsPosted,
+            active: job.clientId.active,
           }
         : null,
       worker: job.workerId
         ? {
-            name: job.workerId.name,
+            firstName: job.workerId.firstName,
+            lastName: job.workerId.lastName,
             email: job.workerId.email,
-            role: job.workerId.role,
+            phoneNumber: job.workerId.phoneNumber,
+            profilePicture:
+              job.workerId.profilePicture ||
+              (job.workerId.workerDetails &&
+                job.workerId.workerDetails.profilePicture),
+            roles: job.workerId.roles,
+            location: job.workerId.location,
+            workerDetails: job.workerId.workerDetails,
+            jobsAccepted: job.workerId.jobsAccepted,
+            jobsCompleted: job.workerId.jobsCompleted,
+            active: job.workerId.active,
           }
         : null,
       verifications: {
@@ -767,14 +791,13 @@ export const getAssignedJobsForWorker = async (req, res) => {
       .populate("clientId")
       .sort({ createdAt: -1 });
 
-    // Transform jobs to always include budget info and type
     const transformedJobs = jobs.map((job) => ({
       jobId: job._id,
       title: job.title,
       description: job.description,
       category: job.category,
       budgetType: job.openToOffer ? "open_to_offer" : "fixed",
-      budget: job.budget, // Should be set when job is in progress
+      budget: job.budget,
       rightNow: job.rightNow,
       scheduledDateTime: job.scheduledDateTime,
       location: job.location,
@@ -784,9 +807,15 @@ export const getAssignedJobsForWorker = async (req, res) => {
       updatedAt: job.updatedAt,
       client: job.clientId
         ? {
-            name: job.clientId.name,
+            firstName: job.clientId.firstName,
+            lastName: job.clientId.lastName,
             email: job.clientId.email,
-            role: job.clientId.role,
+            phoneNumber: job.clientId.phoneNumber,
+            profilePicture: job.clientId.profilePicture,
+            roles: job.clientId.roles,
+            location: job.clientId.location,
+            jobsPosted: job.clientId.jobsPosted,
+            active: job.clientId.active,
           }
         : null,
       verifications: {
@@ -830,9 +859,20 @@ export const getAssignedJobsForClient = async (req, res) => {
       updatedAt: job.updatedAt,
       worker: job.workerId
         ? {
-            name: job.workerId.name,
+            firstName: job.workerId.firstName,
+            lastName: job.workerId.lastName,
             email: job.workerId.email,
-            role: job.workerId.role,
+            phoneNumber: job.workerId.phoneNumber,
+            profilePicture:
+              job.workerId.profilePicture ||
+              (job.workerId.workerDetails &&
+                job.workerId.workerDetails.profilePicture),
+            roles: job.workerId.roles,
+            location: job.workerId.location,
+            workerDetails: job.workerId.workerDetails,
+            jobsAccepted: job.workerId.jobsAccepted,
+            jobsCompleted: job.workerId.jobsCompleted,
+            active: job.workerId.active,
           }
         : null,
       verifications: {
