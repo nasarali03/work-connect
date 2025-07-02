@@ -803,3 +803,48 @@ export const getCompletedJobs = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const addWorkerReview = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { rating, comment } = req.body;
+
+    // Find the job
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Only the client who owns the job can review
+    if (job.clientId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Only allow review if job is completed
+    if (job.status !== "completed") {
+      return res.status(400).json({ message: "Job is not completed yet" });
+    }
+
+    // Find the worker
+    const worker = await User.findById(job.workerId);
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    // Add review to worker's feedback array (assuming such a field exists)
+    worker.workerDetails.feedback = worker.workerDetails.feedback || [];
+    worker.workerDetails.feedback.push({
+      jobId,
+      clientId: req.user.id,
+      rating,
+      comment,
+      date: new Date(),
+    });
+
+    await worker.save();
+
+    res.status(201).json({ message: "Review added successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

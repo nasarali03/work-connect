@@ -14,7 +14,6 @@ import feedbackRoutes from "./routes/feedbackRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import cors from "cors";
-import bookingRoutes from "./routes/bookingRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 dotenv.config();
 
@@ -33,7 +32,6 @@ app.use("/api/workers", workerRoutes);
 app.use("/api/feedback", feedbackRoutes); // Feedback routes
 app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/bookings", bookingRoutes);
 app.use("/api/complaints", complaintRoutes);
 
 setupSwagger(app);

@@ -15,6 +15,7 @@ import {
   getAssignedJobsForWorker,
   getAssignedJobsForClient,
   getCompletedJobs,
+  addWorkerReview,
 } from "../controllers/jobController.js";
 
 const router = express.Router();
@@ -49,5 +50,7 @@ router.get("/assigned/worker", authMiddleware, getAssignedJobsForWorker);
 router.get("/assigned/client", authMiddleware, getAssignedJobsForClient);
 
 router.get("/completed", authMiddleware, getCompletedJobs);
+
+router.post("/:jobId/review", authMiddleware, addWorkerReview);
 
 export default router;
