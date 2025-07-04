@@ -616,3 +616,74 @@ export const getAllComplaints = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const getCompanyIncome = async (req, res) => {
+  try {
+    // Get all service fees
+    const serviceFees = await ServiceFee.find({});
+
+    // Calculate total company income
+    const totalIncome = serviceFees.reduce(
+      (sum, fee) => sum + fee.serviceFeeAmount,
+      0
+    );
+
+    res.status(200).json({ income: totalIncome });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get worker reviews by profession
+export const getWorkerReviewsByProfession = async (req, res) => {
+  try {
+    const { profession } = req.params;
+
+    if (!profession) {
+      return res
+        .status(400)
+        .json({ message: "Profession parameter is required" });
+    }
+
+    // Find workers with the specified profession and approved status
+    const workers = await User.find({
+      "workerDetails.verificationStatus": "approved",
+      "workerDetails.profession": profession,
+      roles: { $in: ["worker"] },
+    }).select(
+      "firstName lastName workerDetails.feedback workerDetails.profession"
+    );
+
+    // Extract and format reviews
+    const reviews = [];
+
+    workers.forEach((worker) => {
+      if (
+        worker.workerDetails &&
+        worker.workerDetails.feedback &&
+        worker.workerDetails.feedback.length > 0
+      ) {
+        worker.workerDetails.feedback.forEach((review) => {
+          reviews.push({
+            workerId: worker._id,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            profession: worker.workerDetails.profession,
+            rating: review.rating,
+            comment: review.comment,
+            date: review.date,
+            clientId: review.clientId,
+            clientName: review.clientName,
+          });
+        });
+      }
+    });
+
+    // Sort reviews by date (newest first)
+    reviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.status(200).json(reviews);
+  } catch (error) {
+    console.error("Error fetching worker reviews by profession:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

@@ -3,12 +3,16 @@ import JobOffer from "../models/JobOffer.js";
 import User from "../models/user.js";
 import Notification from "../models/notification.js";
 import ServiceFee from "../models/ServiceFee.js";
+import mongoose from "mongoose";
 
 // Create a job
 export const createJob = async (req, res) => {
   try {
     console.log(req.user.role);
-    if (!req.user.role.includes("client")) {
+    if (
+      !req.user.role.includes("client") &&
+      !req.user.role.includes("worker")
+    ) {
       return res.status(403).json({ message: "Only clients can post jobs" });
     }
 
@@ -365,15 +369,28 @@ export const requestJobAcceptance = async (req, res) => {
 export const acceptJobOffer = async (req, res) => {
   try {
     const { offerId } = req.params;
-    if (!offerId) {
-      return res.status(400).json({ error: "Missing offerId parameter" });
-    }
-    if (!req.user.role.includes("client")) {
-      return res
-        .status(403)
-        .json({ message: "Only clients can accept job offers" });
+    // Enhanced validation for offerId
+    if (!offerId || offerId === "undefined" || offerId === "null") {
+      return res.status(400).json({
+        error: "Invalid offerId parameter. Please provide a valid offer ID.",
+      });
     }
 
+    // Validate if offerId is a valid ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(400).json({
+        error: "Invalid offerId format. Please provide a valid offer ID.",
+      });
+    }
+
+    if (
+      !req.user.role.includes("client") &&
+      !req.user.role.includes("worker")
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Only clients and workers can accept job offers" });
+    }
     // Get offerId from route params
     const jobOffer = await JobOffer.findById(offerId);
 
@@ -432,8 +449,10 @@ export const acceptJobOffer = async (req, res) => {
       workerId: jobOffer.workerId,
       clientId: job.clientId,
       jobAmount: jobOffer.offerAmount,
-      serviceFee: serviceFeeAmount,
+      serviceFeeAmount: serviceFeeAmount, // FIXED: Changed from serviceFee to serviceFeeAmount
+      serviceFeePercentage: serviceFeePercentage, // FIXED: Added missing field
       status: "pending",
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // FIXED: Added dueDate (7 days from now)
     });
     await serviceFee.save();
 
@@ -478,10 +497,13 @@ export const acceptJobOffer = async (req, res) => {
 // Client rejects a job offer
 export const rejectJobOffer = async (req, res) => {
   try {
-    if (!req.user.role.includes("client")) {
+    if (
+      !req.user.role.includes("client") &&
+      !req.user.role.includes("worker")
+    ) {
       return res
         .status(403)
-        .json({ message: "Only clients can reject job offers" });
+        .json({ message: "Only clients and workers can reject job offers" });
     }
 
     // Get both jobId and offerId from route params
